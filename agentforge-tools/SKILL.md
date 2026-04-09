@@ -126,6 +126,32 @@ Examples:
 
 **Practical guidance**: `isConcurrencySafe()` is the tool's default safety declaration. Wrappers around stateless Bash commands (lint, format, read-only analysis) can override to `true`, but must document the rationale in comments. Global serial is the safe fallback, not the optimal solution.
 
+### IterationBudget with Refund Pattern [HR]
+
+Beyond parallelization, tool execution cost can be managed at the **iteration budget** level. Hermes Agent uses a thread-safe counter passed top-down through agent and subagents:
+
+```python
+class IterationBudget:
+    def consume() -> bool   # Returns False if exhausted (caller should wrap up)
+    def refund()            # Undo a consumption — used after programmatic execution
+    @property remaining: int
+    @property used: int
+```
+
+The key insight: `execute_code` calls `refund()` after programmatic execution completes. Code that runs via tool (single call, batch output) doesn't burn budget the same way as 20 individual tool calls would.
+
+**Effect**: the model is subtly incentivized to use code for loops rather than calling the same tool 20 times — because loop-via-code costs 1 budget unit, while 20 separate tool calls cost 20.
+
+**Budget pressure injection**: warnings are injected as a `_budget_warning` key inside the last tool result JSON (not as a separate message), which preserves prompt cache structure while still alerting the model:
+
+```
+0-70%  → no warning
+70-90% → "consider wrapping up" nudge
+90%+   → "urgent: final N iterations"
+```
+
+**When to use**: any long-running agent where users might issue open-ended tasks that could expand indefinitely. Parent cap (e.g. 90), subagent cap (e.g. 50) — parent + children can exceed parent cap combined, which is intentional: subagent work shouldn't block parent.
+
 ## Decision 3: Tool Registration Method
 
 ### Static Registration [OC]
@@ -304,6 +330,41 @@ Validation error: 'file_path' must be an absolute path.
 Received: 'src/main.rs'
 Expected: '/absolute/path/to/src/main.rs'
 ```
+
+### Policy-as-Schema Pattern [HR]
+
+Behavioral policy for tool use is typically placed in the system prompt. Hermes embeds it directly into the tool's schema `description` field — the model receives it as part of the tool definition, not buried in a long system prompt:
+
+```python
+skill_manage_schema = {
+    "name": "skill_manage",
+    "description": """Create, update, or delete skills.
+
+    CREATE when:
+    - A complex task succeeded (5+ tool calls) and you want the approach reusable
+    - You overcame an error not covered by any existing skill
+    - A user-corrected approach worked — capture the correction immediately
+
+    UPDATE when:
+    - Existing skill instructions are stale or wrong
+    - You encountered an OS-specific failure the skill didn't anticipate
+    - You found a missing step during actual use — patch immediately
+
+    DELETE when:
+    - Skill is superseded by a better automated tool
+    - Instructions are platform-specific and no longer apply
+
+    If you used a skill and hit issues not covered by it, patch it in the same session.
+    """,
+    "parameters": { ... }
+}
+```
+
+**Why this works**: Tool descriptions are loaded at every turn as part of the tool list — the model cannot "forget" them the way it can lose track of a system prompt rule buried on page 3. Policy placed in the schema is always in context when the tool is relevant.
+
+**When to use**: For tools where the "when to use this" judgment is complex and situation-dependent (skill management, memory writes, delegation decisions). Not for simple tools where the name is self-explanatory.
+
+**Trade-off**: Inflates tool description token cost. Only use for tools with non-obvious invocation heuristics.
 
 ## Decision 6: Prompt Variants Tool Adaptation [CL]
 

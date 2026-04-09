@@ -1,27 +1,27 @@
-# 11 Agents Cross-Comparison Matrix
+# 12 Agents Cross-Comparison Matrix
 
-> Source: v1 research report + Wave 2 deep reverse engineering (2026-04-06)
-> 11 production-grade Agents, 14-dimensional comparison + each Agent's killer innovation
+> Source: v1 research report + Wave 2 deep reverse engineering (2026-04-06) + Wave 7 Hermes research (2026-04-09)
+> 12 production-grade Agents, 14-dimensional comparison + each Agent's killer innovation
 > Note: Cursor data sourced from behavioral observation, not source code verification
 
 ## Core Architecture Comparison
 
-| Dimension | Claude Code | Codex CLI | OpenCode | Aider | Cline | OpenClaw | OpenHands | Goose | Letta | MemU | Cursor† |
-|------|------------|-----------|----------|-------|-------|----------|-----------|-------|-------|------|--------|
-| **Language** | TypeScript | Rust + TS | Go | Python | TypeScript | TypeScript | Python | Rust | Python | Rust + Python | TypeScript (Electron) |
-| **UI** | Terminal (Ink) | Terminal (ratatui) | Terminal (Bubble Tea) | Terminal (Rich) | VS Code Webview | Web + Mobile native | Web + SDK | Terminal | REST API | Library | IDE (VS Code fork) |
-| **Positioning** | CLI Agent | CLI Agent | CLI Agent | CLI Agent | IDE Extension | Agent OS (multi-channel gateway) | Research-grade Agent SDK | CLI Agent | Agent Framework | Agent Framework | IDE Agent Orchestrator |
-| **Agent Loop** | Async Generator | Submission-Handler | PubSub Event | Reflection Chain | Event + Proto | Plugin Gateway | Event Sourcing | Rust Agent loop | Step + Heartbeat | Workflow Pipeline | Sketch+Apply Two-Stage |
-| **Tool Count** | 35+ | 15+ | 15+ | Commands only | 27 | 100+ Skill plugins | ~8 dynamically generated | MCP-based | Function set | None (steps) | ~15 built-in + MCP |
-| **Edit Format** | Exact replacement | Git Patch | Exact replacement | Polymorphic (5 types) | Unified Patch | Inherited from Cline | Semantic Action | Unspecified | N/A | N/A | Sketch+Apply (self-developed MoE integrated diff) |
-| **Sandbox** | Permission rules + Hook | OS-level (Seatbelt/Landlock) | Permission dialog | None | Auto-approve rules | Plugin isolation | Docker/K8s/Local/Remote/CLI/E2B | None | Tool sandbox | None | Kernel-level (Seatbelt/Landlock/seccomp) |
-| **Memory** | MEMORY.md + KAIROS | Event log | SQLite + SummaryMessageID | Git history | Disk persistence | Plugin Memory | Event Store | None explicit | Block memory (core) | Hierarchical memory (core) | No native cross-session memory (Notepads manual) |
-| **Multi-Agent** | 3-tier isolation (Worktree/remote/background) | Registry + messaging | Session inheritance | None | Sub-agent tool | Plugin SDK | 3 Microagent types (Knowledge/Repo/Task) | None | Multi-agent tools | None | Agent tree (recursive spawn) + /best-of-n cross-model competition, up to 8 local parallel + unlimited Cloud |
-| **Context Compression** | auto-compact + micro-compact + context-collapse + snip | Op::Compact | Summarize (truncate to post-summary) | On model switch | Condense tool | Prompt Cache stable ordering | Condenser (View/Condensation) | None explicit | Summarize + archive | None | Merkle tree incremental indexing + AST splitting |
-| **Loop Detection** | Compaction circuit breaker (3x) | None explicit | None explicit | None explicit | Signature comparison (3/5 threshold) | 4 detectors + global circuit breaker (30x) | None explicit | None explicit | None explicit | None explicit | None explicit |
-| **MCP** | Native support | Native support | Native support | None | Native support | Native support | Native support | Native support | Native support | None | Native support (output file optimization) |
-| **Prompt Cache** | Yes (static/dynamic separation) | None explicit | None | Optional | None | Yes (deterministic ordering + cache boundary) | None | None | None | None | Yes (Merkle tree incremental) |
-| **Prompt Variants** | None (single system prompt) | None | None | None | 11 model families × 13 components | Dynamic selection by Provider | None | None | None | None | None explicit |
+| Dimension | Claude Code | Codex CLI | OpenCode | Aider | Cline | OpenClaw | OpenHands | Goose | Letta | MemU | Cursor† | Hermes |
+|------|------------|-----------|----------|-------|-------|----------|-----------|-------|-------|------|--------|--------|
+| **Language** | TypeScript | Rust + TS | Go | Python | TypeScript | TypeScript | Python | Rust | Python | Rust + Python | TypeScript (Electron) | Python |
+| **UI** | Terminal (Ink) | Terminal (ratatui) | Terminal (Bubble Tea) | Terminal (Rich) | VS Code Webview | Web + Mobile native | Web + SDK | Terminal | REST API | Library | IDE (VS Code fork) | Terminal + Gateway (iMessage/Discord/Slack) |
+| **Positioning** | CLI Agent | CLI Agent | CLI Agent | CLI Agent | IDE Extension | Agent OS (multi-channel gateway) | Research-grade Agent SDK | CLI Agent | Agent Framework | Agent Framework | IDE Agent Orchestrator | Self-improving Agent + RL training platform |
+| **Agent Loop** | Async Generator | Submission-Handler | PubSub Event | Reflection Chain | Event + Proto | Plugin Gateway | Event Sourcing | Rust Agent loop | Step + Heartbeat | Workflow Pipeline | Sketch+Apply Two-Stage | AIAgent single-class (~3000 lines) + IterationBudget |
+| **Tool Count** | 35+ | 15+ | 15+ | Commands only | 27 | 100+ Skill plugins | ~8 dynamically generated | MCP-based | Function set | None (steps) | ~15 built-in + MCP | Dynamic (toolset-gated, condition-filtered) |
+| **Edit Format** | Exact replacement | Git Patch | Exact replacement | Polymorphic (5 types) | Unified Patch | Inherited from Cline | Semantic Action | Unspecified | N/A | N/A | Sketch+Apply (self-developed MoE integrated diff) | Fuzzy patch (SequenceMatcher) |
+| **Sandbox** | Permission rules + Hook | OS-level (Seatbelt/Landlock) | Permission dialog | None | Auto-approve rules | Plugin isolation | Docker/K8s/Local/Remote/CLI/E2B | None | Tool sandbox | None | Kernel-level (Seatbelt/Landlock/seccomp) | Security scan on every skill write |
+| **Memory** | MEMORY.md + KAIROS | Event log | SQLite + SummaryMessageID | Git history | Disk persistence | Plugin Memory | Event Store | None explicit | Block memory (core) | Hierarchical memory (core) | No native cross-session memory (Notepads manual) | MEMORY.md (semantic) + session_search FTS5 (episodic) + provider lifecycle hooks |
+| **Multi-Agent** | 3-tier isolation (Worktree/remote/background) | Registry + messaging | Session inheritance | None | Sub-agent tool | Plugin SDK | 3 Microagent types (Knowledge/Repo/Task) | None | Multi-agent tools | None | Agent tree (recursive spawn) + /best-of-n cross-model competition, up to 8 local parallel + unlimited Cloud | Delegation lineage (parent_session_id chain) + on_delegation hook |
+| **Context Compression** | auto-compact + micro-compact + context-collapse + snip | Op::Compact | Summarize (truncate to post-summary) | On model switch | Condense tool | Prompt Cache stable ordering | Condenser (View/Condensation) | None explicit | Summarize + archive | None | Merkle tree incremental indexing + AST splitting | on_pre_compress hook (memory providers inject summaries) |
+| **Loop Detection** | Compaction circuit breaker (3x) | None explicit | None explicit | None explicit | Signature comparison (3/5 threshold) | 4 detectors + global circuit breaker (30x) | None explicit | None explicit | None explicit | None explicit | None explicit | IterationBudget (90 parent / 50 subagent cap) |
+| **MCP** | Native support | Native support | Native support | None | Native support | Native support | Native support | Native support | Native support | None | Native support (output file optimization) | None explicit |
+| **Prompt Cache** | Yes (static/dynamic separation) | None explicit | None | Optional | None | Yes (deterministic ordering + cache boundary) | None | None | None | None | Yes (Merkle tree incremental) | Two-layer skills cache (in-process LRU + disk mtime snapshot) |
+| **Prompt Variants** | None (single system prompt) | None | None | None | 11 model families × 13 components | Dynamic selection by Provider | None | None | None | None | None explicit | Per-model behavioral guidance constants (GPT/Gemini/Gemma/Grok/Codex) generated by automated benchmarks |
 
 ## Killer Innovations by Agent
 
@@ -38,6 +38,7 @@
 | **Letta** | Block memory 6 CRUD types (append/replace/insert/rethink/patch) + deep copy isolation + Read-Only protection + Heartbeat chain execution + 3 rendering modes |
 | **MemU** | Pipeline immutable versioning (4 atomic operations) + 3-tier memory (Category→Item→Resource) + 7-step RAG sufficiency check + 5 capability declarations + dual interceptors |
 | **Cursor†** | Sketch+Apply two-stage editing (self-developed MoE 250tok/s) + Agent tree recursive spawn + /best-of-n cross-model competition + Automations event-driven always-on Agent + Merkle tree incremental indexing |
+| **Hermes** | Closed learning loop (trajectory→RL toolset→benchmark→updated guidance→Hindsight) + IterationBudget with execute_code refund + skill conditions (toolset-aware show/hide) + policy-as-schema + semantic/episodic memory explicit split + session lineage tracking |
 
 ## How to Use This Matrix
 
@@ -62,5 +63,7 @@
 | Letta | `reference-material/letta` |
 | MemU | `reference-material/memu` |
 | Cursor† | Closed source (behavioral observation, not source-verified) |
+| Hermes | `借鉴/hermes-agent` (NousResearch, cloned 2026-04-09) |
 
 > † All Cursor data sourced from behavioral observation, not source code verification
+> ‡ Hermes deep research report: `领域知识/multi-agents/agent-architecture-research/hermes-deep-study.md`

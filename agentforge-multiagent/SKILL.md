@@ -145,6 +145,40 @@ OpenCode's pattern: Session inheritance + PubSub notification
 - On completion, publishes event via PubSub
 - Cost auto-aggregates to parent Session
 
+### Delegation Lineage Tracking [HR]
+
+Hermes stores full delegation chains in SQLite, enabling session history search to correctly deduplicate and attribute subagent work:
+
+```sql
+-- sessions table
+CREATE TABLE sessions (
+    session_id TEXT PRIMARY KEY,
+    parent_session_id TEXT,          -- NULL for root sessions
+    source TEXT,                     -- "user", "tool", "api"
+    created_at TIMESTAMP,
+    ...
+);
+
+-- Walk the chain to find root
+def _resolve_to_parent(session_id) -> str:
+    while True:
+        parent = db.get_parent(session_id)
+        if parent is None:
+            return session_id
+        session_id = parent
+```
+
+**Three sources tagged at creation**:
+- `source="user"` — Human-initiated sessions (visible in history)
+- `source="tool"` — Subagent sessions spawned by tool calls (hidden from user history)
+- `source="api"` — Third-party integrations (hidden)
+
+**Context compression creates child sessions**: when the context is compressed, a new child session continues the work. The lineage chain is preserved.
+
+**Memory provider gets notified on delegation**: the `on_delegation(task, result, child_session_id)` hook lets memory providers record what was delegated and what came back, without parsing the full transcript.
+
+**When to implement**: any agent that spawns subagents and needs searchable session history. Without lineage tracking, cross-session search returns duplicates (parent + child both match the same query); with it, results are deduplicated at the root and child work is attributed correctly.
+
 ## Agent Registry and Lifecycle
 
 ### Codex's ThreadManager [CX]
