@@ -74,9 +74,11 @@ buildTool({ name, schema, call })  // Other methods have safe defaults
 | Aider [AD] | No formal interface (prompt-driven) | 0 |
 | Cline [CL] | Medium (enum + handler) | 27 tools (ClineDefaultTool enum) |
 
-### ACI Principle: Interface Design > Model Choice [SWE]
+### Purpose-Built Tools Over Generic Tools [SWE]
 
-SWE-agent (Princeton/Stanford, NeurIPS 2024) demonstrated that purposeful tool interface design improves SWE-bench performance more than swapping between model tiers. The key insight: **for every tool, ask "what is the minimum information the agent needs to make the right next decision?" not "what can the agent do?"**
+SWE-agent (Princeton/Stanford, NeurIPS 2024) showed that domain-specific tools outperform generic bash+file tools for coding tasks. The underlying mechanism: better-structured inputs → better LLM decisions. The key question for each tool: **"what is the minimum information the agent needs to make the right next decision?" — not "what can the agent do?"**
+
+> The paper frames this as "ACI design > model choice." More precise reading: *appropriately designed tools for the specific task* outperform generic tools. This is an application of garbage-in/garbage-out, not a new architectural theory. The paper's value is in the empirical measurements of *which specific constraints work* (view windows, exact-match edit, linter feedback, blocklists).
 
 **Constrained output > comprehensive output**
 
@@ -450,7 +452,7 @@ skill_manage_schema = {
 
 ### CodeAgent: Code as Action Language [SM]
 
-smolagents (HuggingFace) demonstrates an alternative to JSON tool calls: the LLM generates Python code that calls tools directly. Tools become Python-callable functions. ~30% fewer tokens for complex multi-tool workflows.
+smolagents (HuggingFace) demonstrates an alternative to JSON tool calls: the LLM generates Python code that calls tools directly. Tools become Python-callable functions. HuggingFace claims ~30% fewer tokens for complex multi-tool workflows [unverified — benchmark details not disclosed; directional claim is plausible given Python's syntax density vs. JSON for chained operations].
 
 **Core mechanism**:
 
