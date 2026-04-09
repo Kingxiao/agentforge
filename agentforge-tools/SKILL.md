@@ -74,6 +74,77 @@ buildTool({ name, schema, call })  // Other methods have safe defaults
 | Aider [AD] | No formal interface (prompt-driven) | 0 |
 | Cline [CL] | Medium (enum + handler) | 27 tools (ClineDefaultTool enum) |
 
+### ACI Principle: Interface Design > Model Choice [SWE]
+
+SWE-agent (Princeton/Stanford, NeurIPS 2024) demonstrated that purposeful tool interface design improves SWE-bench performance more than swapping between model tiers. The key insight: **for every tool, ask "what is the minimum information the agent needs to make the right next decision?" not "what can the agent do?"**
+
+**Constrained output > comprehensive output**
+
+```
+search_dir <term>  →  Returns: filenames + match counts ONLY
+                       (NOT: context snippets, line previews, file contents)
+
+Why: Models performed WORSE when search showed snippet context.
+     Succinct output forces deliberate navigation.
+```
+
+**View windowing as a feature, not a limitation**
+
+```
+str_replace_editor view <file>  →  Shows: 100 lines + line numbers, truncated at 16K chars
+
+Why: LLMs reason better in small windows.
+     Forces the agent to navigate (scroll/search) rather than process the whole file.
+```
+
+**Linter feedback as immediate error signal**
+
+After every `str_replace` edit, flake8 runs automatically. If syntax invalid:
+```
+<NOTE>Your edits have been applied, but the linter has found syntax errors.</NOTE>
+<ERRORS>
+line 42: unexpected indent
+</ERRORS>
+```
+Edit is applied (not rejected), but the model gets immediate feedback. This collapses the edit→verify→fix loop from 3 steps to 1.
+
+**Exact-match editing (str_replace) > line-based editing**
+
+```python
+# str_replace pattern:
+str_replace_editor str_replace <path> \
+  --old_str "def calculate(x):\n    return x" \
+  --new_str "def calculate(x: int) -> int:\n    return x * 2"
+```
+
+Why exact-match beats "replace line 42":
+- Forces agent to VIEW the file before editing (must see exact text to specify it)
+- Prevents off-by-one errors
+- Self-documenting (old_str shows what's being changed)
+- Atomic (block replaced, not partial line)
+
+**Blocklists are ACI decisions, not just security**
+
+SWE-agent blocks: `vim`, `nano`, `emacs`, `gdb`, `less`, `tail -f`, bare `python`. This forces the model into the intended workflow (view → search → str_replace) rather than allowing ad-hoc interactive patterns that the framework can't supervise.
+
+Rule: Every blocked tool is an implicit statement that there is a better, supervisable alternative.
+
+**Empty output should be explicit, not silent**
+
+```
+Your command ran successfully and did not produce any output.
+```
+
+Without this, agents infer from silence that the command failed, or loop trying again. Explicit success messages prevent redundant retries.
+
+**ACI Design Checklist (apply to every new tool)**
+
+- [ ] What is the minimum output format the agent needs? (remove everything else)
+- [ ] Does full output contain noise that hurts reasoning? → Add truncation/filtering
+- [ ] Is there a feedback loop? (linter, validation, success confirmation)
+- [ ] Does the tool encourage bad workflows if used naively? → Add blocklist/constraint
+- [ ] Can the agent make irreversible mistakes? → Add undo or dry-run mode
+
 ## Decision 2: Concurrency Strategy
 
 ### Partition Strategy [CC] (Recommended)
@@ -257,6 +328,17 @@ func (t *mcpTool) Run(ctx, call) (ToolResponse, error) {
 - `Todo` — Task management
 - `Plan` — Plan mode switching
 
+### Tool Design by ACI Class
+
+| ACI Pattern | Tool Design Implication |
+|-------------|------------------------|
+| View windows | Show 100 lines max; always include line numbers; truncate at 16K chars |
+| Succinct search | Return filenames/counts only; provide snippet access as a separate tool |
+| Exact-match edit | Require old_str + new_str; validate match before applying |
+| Linter feedback | Run formatter/linter after every write; report errors in-band |
+| Atomic endpoints | Single `submit`/`done`/`finish` tool that captures final state |
+| Blocklist | Block interactive/infinite tools; provide supervisable alternatives |
+
 ## External API Call Tool Design
 
 When an Agent calls external APIs (REST/gRPC/database writes) through tools, three production-grade challenges must be handled: idempotency, retry, rate limiting. These three issues must be declared at the tool interface design stage — otherwise Agent retries will produce duplicate side effects.
@@ -365,6 +447,72 @@ skill_manage_schema = {
 **When to use**: For tools where the "when to use this" judgment is complex and situation-dependent (skill management, memory writes, delegation decisions). Not for simple tools where the name is self-explanatory.
 
 **Trade-off**: Inflates tool description token cost. Only use for tools with non-obvious invocation heuristics.
+
+### CodeAgent: Code as Action Language [SM]
+
+smolagents (HuggingFace) demonstrates an alternative to JSON tool calls: the LLM generates Python code that calls tools directly. Tools become Python-callable functions. ~30% fewer tokens for complex multi-tool workflows.
+
+**Core mechanism**:
+
+```python
+# Instead of:
+{"name": "search", "arguments": {"query": "python async patterns"}}
+
+# Agent generates:
+results = search("python async patterns")
+filtered = [r for r in results if "asyncio" in r["title"]]
+summary = summarize(filtered[:3])
+final_answer(summary)
+```
+
+**Why this is more efficient**:
+- Python's syntax is more compact than JSON for chained operations
+- Variables persist across steps without re-serialization — `results` from step 1 accessible in step 2
+- Multiple tool calls can occur within one LLM output (one code block)
+- Error recovery: partial state (`print()` outputs, assigned variables) survives exceptions
+
+**Persistent state executor**:
+
+```python
+class PythonExecutor:
+    state: dict  # Persists across ALL steps
+    
+    def __call__(self, code: str) -> CodeOutput:
+        # AST-walk execution — each assignment updates self.state
+        # Tools registered in state["search"] = search_tool, etc.
+        # Variables survive: state["results"] = [...] from step 1
+        # Available next step: results = state["results"]
+```
+
+**Tool → Python signature conversion** (what the LLM sees in system prompt):
+
+```python
+def search(query: str) -> str:
+    """Search the web for information.
+    
+    Args:
+        query: The search query string
+    Returns:
+        str: Search results
+    """
+```
+
+Tools are NOT actually converted to Python functions — they remain callable objects. The signature is documentation only.
+
+**Executor isolation tier** (required decision):
+
+| Tier | Executor | Isolation | Use For |
+|------|----------|-----------|---------|
+| Dev | LocalPythonExecutor | NONE (AST sandbox only) | Trusted LLM output, local dev |
+| Staging | DockerExecutor | Container | CI/testing |
+| Production | E2BExecutor (Firecracker VM) | OS-level | Untrusted input, user-facing |
+| Browser | WasmExecutor (Deno) | Deno permissions | Web/serverless |
+
+**Anti-pattern**: LocalPythonExecutor is NOT a security tool (explicitly documented by HuggingFace). Never use it for code that could be influenced by untrusted users.
+
+**When to use CodeAgent vs. JSON ToolCalling**:
+- Use CodeAgent when: multi-step workflows with state sharing, complex data transformations, loops/conditionals needed
+- Use JSON when: simple single-tool calls, model doesn't reliably generate syntactically valid Python, structured output is required
 
 ## Decision 6: Prompt Variants Tool Adaptation [CL]
 
