@@ -122,6 +122,7 @@ Agent-suitable ≠ Agent-feasible. After passing the suitability check, five mor
 | **Agent OS / Platform** | Multi-channel gateway + plugin system + Skill orchestration | OpenClaw, Goose | Multi-channel adaptation, plugin isolation |
 | **GUI Agent** | Screenshot understanding + click/keyboard operations + visual feedback loop | Claude Computer Use, Browser-use, UI-TARS | Screenshot token cost (~1500/image), action precision, accidental trigger prevention |
 | **Voice / Realtime Agent** | Real-time audio stream + <500ms response + bidirectional WebSocket | OpenAI Realtime API, Gemini Live | WebSocket long connection management, interruption handling, concurrent conversation isolation |
+| **Learning Agent** | Trajectory capture + skill synthesis + self-benchmark + closed learning loop | Hermes (NousResearch) | Validation gate design (no gate = error amplification), ephemeral context hygiene in training data, RL infrastructure coupling |
 
 ### Research Agent Search Strategy Design Points
 

@@ -55,6 +55,31 @@ Agent attempts task
 
 Each line in a good CLAUDE.md traces to a specific past agent failure. Never add speculative rules.
 
+**Automated Hashimoto Loop (L3b — Hermes Pattern)**
+
+The manual loop above (L3a) requires human observation to trigger. A learning agent can close this loop autonomously:
+
+```
+Agent attempts task
+       ↓
+  Task completes (success or failure)
+       ↓
+  Trajectory saved to JSONL (completed vs. failed separation)
+       ↓
+  "Hindsight" retrospective: analyze trajectory for patterns
+    → Did agent repeat a mistake N times before recovering?
+    → Did agent use a suboptimal tool sequence?
+    → Was there a missing skill that would have shortened the path?
+       ↓
+  Skill patch proposed → security scan → atomic write
+       ↓
+  Next task benefits from updated skill (no human intervention)
+```
+
+Key difference from L3a: the **observation** and **diagnosis** steps are performed by the agent itself, not a human. The human's role shifts from firefighter to curriculum designer — setting the benchmark, not watching every run.
+
+This is only viable when: (a) trajectories are reliably captured, (b) the agent has skill write access with rollback, and (c) there is a validation mechanism (benchmark run) between patch and deploy. Without all three, autonomous skill updates create feedback loops that amplify errors instead of correcting them.
+
 ## Harness Components (Seven Layers)
 
 Read `references/components.md` for detailed implementation of each layer:
@@ -624,6 +649,87 @@ async def process_event_async(payload: dict):
 | Failure recovery | Resume from Checkpoint | Restart Pod + idempotent processing |
 | State persistence | CheckpointManager serialization | Redis / DB (per-request) |
 | Shutdown handling | Save current Loop state | Wait for in-flight requests to complete |
+
+---
+
+## Learning Harness (Hermes Pattern)
+
+The constraint harness (CLAUDE.md + hooks + structural tests) prevents the agent from doing the wrong thing. A **learning harness** enables the agent to improve what it does right — capturing successful trajectories, distilling them into reusable skills, and closing the loop without human intervention at every step.
+
+These are two orthogonal harness dimensions. Most agents have only the constraint harness. Learning agents need both.
+
+### The Two Harness Dimensions
+
+| Dimension | Constraint Harness | Learning Harness |
+|-----------|-------------------|-----------------|
+| Goal | Prevent wrong actions | Improve correct actions |
+| Mechanism | Hooks, linters, CLAUDE.md rules | Trajectory capture, skill synthesis, benchmark validation |
+| Trigger | Agent about to do something | Agent just finished something |
+| Human role | Author of rules | Author of benchmarks |
+| Failure mode | Agent breaks the rules | Agent optimizes the wrong metric |
+
+### Learning Harness Components
+
+**1. Trajectory capture infrastructure**
+
+```python
+# Split by outcome — positive and negative training examples separated
+save_trajectory(trajectory, completed=True)   → trajectory_samples.jsonl
+save_trajectory(trajectory, completed=False)  → failed_trajectories.jsonl
+
+# Critical: strip ephemeral context before saving
+entry["ephemeral_system_prompt"] = None  # persona injection, session IDs — not generalizable
+entry["timestamp"] = utcnow()
+entry["model"] = current_model
+```
+
+Both files feed different training pipelines: completed = positive examples (imitate), failed = negative examples (DPO preference tuning).
+
+**2. Skill write access with safety gates**
+
+For an agent to self-improve, it must be able to modify its own skills at runtime. This requires:
+- Atomic writes (`tempfile.mkstemp()` + `os.replace()`) — crash-safe, no partial writes
+- Security scan on every write — identical scan as hub-installed skills
+- Rollback on scan block — the agent gets the rejection reason and can revise
+- Cache invalidation — both in-process LRU and disk snapshot cleared after successful write
+- Fuzzy match on patch failure — returns file preview for model self-correction
+
+**3. Validation between patch and deploy**
+
+Autonomous skill updates without validation amplify errors. The minimum viable gate:
+- Run a benchmark subset after each skill update
+- If score drops → revert the skill to the previous version
+- If score improves or holds → deploy, log the change
+
+**4. Hindsight retrospective analysis**
+
+After completing a trajectory, the agent reviews it to extract skill improvements:
+
+```
+Hindsight questions:
+1. Did I repeat any tool sequence 3+ times before finding the right approach?
+   → Package the correct approach as a skill step
+2. Did I recover from an error not covered in any existing skill?
+   → Patch the relevant skill with the recovery procedure
+3. Did I complete a 5+ step task with no existing skill covering it?
+   → Create a new skill (title, trigger condition, steps, verification)
+```
+
+Hindsight is distinct from real-time learning — it runs *after* the task, in a separate context, with access to the full trajectory. This prevents the agent from modifying its own behavior mid-task.
+
+### When to Build a Learning Harness
+
+**Build it when:**
+- The agent performs repeated similar tasks (skill synthesis has high ROI)
+- You have a measurable benchmark to validate skill changes against
+- The task domain evolves over time (skills need updating, not just creating)
+
+**Don't build it when:**
+- Each task is unique (trajectories don't generalize)
+- There's no reliable success/failure signal (can't split trajectories meaningfully)
+- You lack a validation benchmark (autonomous updates without validation are net negative)
+
+The constraint harness is always needed. The learning harness is only needed when the agent will run enough tasks that accumulated trajectory data exceeds what a human can review.
 
 ---
 
