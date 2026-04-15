@@ -222,6 +222,80 @@ Substitute these into the recipes above based on your project:
 
 Team standards go in `.claude/settings.json`. Personal preferences in `.local.json`.
 
+## Hook Gating: Profile and Disable Flags
+
+Hooks are not all-or-nothing. A harness without escape valves becomes a cage — the user disables everything to get anything done. Implement two dimensions of gating:
+
+### Profile-based gating
+
+Set an environment variable that controls hook strictness:
+
+```bash
+HARNESS_HOOK_PROFILE=minimal   # only critical security hooks
+HARNESS_HOOK_PROFILE=standard  # default — format, lint, test-before-commit
+HARNESS_HOOK_PROFILE=strict    # aggressive — type-check-every-write, risk-score-every-bash
+```
+
+Each hook script checks the profile and exits 0 immediately if it's not enabled at that level:
+
+```bash
+#!/usr/bin/env bash
+PROFILE="${HARNESS_HOOK_PROFILE:-standard}"
+REQUIRED_PROFILES="standard,strict"
+echo "$REQUIRED_PROFILES" | tr ',' '\n' | grep -qx "$PROFILE" || exit 0
+# ... rest of hook logic
+```
+
+### Per-hook disable
+
+Allow individual hooks to be turned off by ID for specific sessions:
+
+```bash
+HARNESS_DISABLED_HOOKS=risk-score,type-check-every-write
+```
+
+Each hook checks its own ID against the disable list:
+
+```bash
+HOOK_ID="risk-score"
+echo "${HARNESS_DISABLED_HOOKS:-}" | tr ',' '\n' | grep -qx "$HOOK_ID" && exit 0
+```
+
+### Wrapper pattern
+
+Factor these checks into a wrapper so every hook doesn't repeat the logic:
+
+```bash
+# .claude/hooks/run-with-flags.sh <hook-id> <script-path> <required-profiles>
+HOOK_ID="$1"
+SCRIPT="$2"
+REQUIRED_PROFILES="$3"
+PROFILE="${HARNESS_HOOK_PROFILE:-standard}"
+
+echo "${HARNESS_DISABLED_HOOKS:-}" | tr ',' '\n' | grep -qx "$HOOK_ID" && exit 0
+echo "$REQUIRED_PROFILES" | tr ',' '\n' | grep -qx "$PROFILE" || exit 0
+exec "$SCRIPT"
+```
+
+Then in settings.json:
+```json
+{
+  "type": "command",
+  "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/run-with-flags.sh risk-score $CLAUDE_PROJECT_DIR/.claude/hooks/risk-score.sh standard,strict"
+}
+```
+
+### Why this matters
+
+The Hashimoto Loop says "observe failure → engineer system-level fix." But a fix that's too strict blocks legitimate work, and the user's only recourse is to delete the hook — losing the benefit for every future session.
+
+Gating gives you a gradient:
+- Per-session disable (`HARNESS_DISABLED_HOOKS=x`) for debugging or exploratory work
+- Per-profile strictness for different contexts (production vs research)
+- Keep the hook but lower its reach — "build for deletion" gets replaced by "build for dimming"
+
+Reference: ECC uses `ECC_HOOK_PROFILE` and `ECC_DISABLED_HOOKS` environment variables routed through `scripts/hooks/run-with-flags.js`.
+
 ## Best Practices
 
 - **Use script files for complex hooks.** Inline one-liners are hard to debug. Put logic in `.claude/hooks/script-name.sh` and reference it: `{"type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-commit-check.sh"}`

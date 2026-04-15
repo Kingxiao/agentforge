@@ -60,6 +60,27 @@ Main agent → spawns "frontend engineer" sub-agent
 
 Sub-agents prevent intermediate noise (file contents, error messages, debugging output) from contaminating the orchestration thread.
 
+### Iterative Retrieval for Subagent Context
+
+Subagents spawned with "here's the task, figure it out" fail because they can't predict what context they need. Send everything = token overflow. Send nothing = hallucination. Send guesses = usually wrong terms for this codebase.
+
+Pattern: progressive refinement loop, max 3 cycles.
+
+1. **DISPATCH** — broad initial query (patterns + keywords + excludes)
+2. **EVALUATE** — score each retrieved item 0-1 for relevance to task:
+   - 0.8-1.0: directly implements target functionality
+   - 0.5-0.7: contains related patterns or types
+   - 0.2-0.4: tangentially related
+   - 0-0.2: exclude
+3. **REFINE** — drop < 0.2; add newly discovered terms/paths to next query
+4. **LOOP** — exit when ≥ 3 items score > 0.7 without critical gaps
+
+Enforce the scoring protocol at the harness level: subagents MUST return relevance scores with findings. If a subagent's return lacks scores, a hook or the main agent's validation step rejects it and requests a re-run.
+
+Why this belongs in harness engineering: "agents hallucinate" (First Principle #4) and "context rots" (#2) both degrade when subagents operate without feedback on their own retrieval quality. Scoring turns an open-ended "go find stuff" into a measurable process with a termination condition.
+
+Reference: ECC's `skills/iterative-retrieval/SKILL.md` for full pseudocode and two worked examples (bug fix, feature implementation with terminology mismatch).
+
 ## 3. Memory & State — What Persists
 
 ### Progress File Pattern
@@ -118,6 +139,36 @@ Write linter error messages so the agent can self-correct:
 
 The error message becomes the remediation instruction.
 
+### Risk-Scored Constraints (Continuous, Not Binary)
+
+Beyond binary allow/block rules, harnesses can score risk continuously and route to graduated responses:
+
+- **Allow** (score < 0.3): proceed silently
+- **Review** (0.3-0.6): log and surface to user but don't block
+- **Confirm** (0.6-0.85): require explicit user approval
+- **Block** (> 0.85): refuse execution
+
+Compose the score from orthogonal axes that sum to 0-1:
+
+1. **Base tool risk** — Bash (0.20) > Write/MultiEdit (0.15) > Edit (0.10) > others (0.05)
+2. **File sensitivity** — secrets/credentials (+0.25); shared infra like Dockerfile, migrations, production configs (+0.15)
+3. **Blast radius** — shared-state patterns like `git push --force origin main`, `rm -rf .` (+0.35); wide-scope patterns like `**`, `--recursive`, `--all` (+0.25)
+4. **Irreversibility** — destructive like `rm -rf`, `git reset --hard`, `DROP TABLE` (+0.45); moderately irreversible like `git push -f`, `DELETE FROM` (+0.40)
+
+Pattern source lists (copy into your hook):
+- Secret: `.env`, `secret`, `credential`, `token`, `api_key`, `id_rsa`, `.pem`, `.key`
+- Shared infra: `Cargo.toml`, `package.json`, `Dockerfile`, `.github/workflows`, `schema`, `migration`
+- Blast radius: `**`, `/*`, `--all`, `--recursive`, `find ... xargs`, `origin main`, `rm -rf .`
+- Irreversible: `rm -rf`, `git reset --hard`, `git clean -fd`, `drop database`, `drop table`, `truncate`
+
+Implement as a PreToolUse hook: read stdin, score, print reasons, exit accordingly (0 for Allow, 0 + stderr warning for Review, 2 for Confirm/Block).
+
+Why this matters: binary allow/block produces false positives (blocks legitimate work) or false negatives (misses combined risks). A 4-axis scalar captures "this command would be fine alone but is dangerous in this combination" — e.g., `rm -rf` alone scores 0.65 (confirm), but `rm -rf . && git push --force` scores 1.0 (block).
+
+Complements but does not replace Dry-Run Mode (main SKILL.md): Dry-Run is tool-layer preview for API writes; risk scoring is shell-command scoring for Bash-like tools.
+
+Reference: ECC's `ecc2/src/observability/mod.rs:60-218` provides a complete Rust implementation with tests that verify combined-risk blocking.
+
 ## 5. Verification & Feedback — How the System Self-Corrects
 
 ### Test-Before-Commit (Essential Hook)
@@ -170,6 +221,37 @@ The `stop_hook_active` check prevents infinite loops — without it, a failing b
 ### The Reasoning Budget Sandwich
 
 LangChain's finding: allocate high reasoning effort to planning and verification, standard effort to implementation. Planning and verification are where mistakes are most costly.
+
+### Synchronous vs Asynchronous Back-Pressure
+
+Hooks are synchronous — they fire on a specific tool use and return a verdict immediately. This covers simple checks: lint on write, test before commit, block dangerous bash.
+
+Some verifications cannot fit a single tool use:
+
+- "Has this session drifted from the original plan over the last hour?"
+- "Are there crashed sessions from before the harness restarted?"
+- "Should we auto-merge worktrees that have been clean and conflict-free for > 10 minutes?"
+- "Has the agent been stuck in a retry loop across tool calls?"
+
+These need an async daemon loop that polls on a fixed interval:
+
+```
+loop every N seconds:
+  check_session_health         // mark stale/crashed
+  dispatch_scheduled_tasks      // cron-like follow-ups
+  coordinate_shared_resources   // auto-merge, auto-prune, conflict detection
+  sleep(heartbeat_interval)
+```
+
+Key insight: polling is easier to debug and pause/resume than event-driven dispatch. For multi-agent or multi-session systems, the tick count is a natural timestamp — which is the primary requirement for time-travel debugging.
+
+When to use which:
+- **Synchronous hook** — verifying a single operation right now (build passes, no secrets leaked, test-before-commit)
+- **Async daemon** — tracking drift, coordinating multiple sessions, scheduled maintenance, anything that requires comparing state across time
+
+This complements the **Long-Running Agent Harness** pattern (main SKILL.md): that pattern handles agents that never naturally terminate (meeting assistants, monitors). This section addresses *verifications* that can't fit inside a single tool invocation — applicable even to short-lived agents in multi-session workflows.
+
+Reference: see ECC's `ecc2/src/session/daemon.rs:20-56` for a 7-pass daemon loop that handles session checks, scheduled dispatch, remote dispatch, backlog coordination, auto-merge, auto-prune, and pending-session activation — all on a single heartbeat.
 
 ## 6. Entropy Management — Fighting Decay
 
