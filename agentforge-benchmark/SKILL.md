@@ -1,6 +1,6 @@
 ---
 name: agentforge-benchmark
-description: AgentForge Phase 11 — Agent testing, acceptance, and benchmark evaluation. Test layering strategy + tool call mocking + industry benchmark index (SWE-bench/WebArena/AgentBench/τ-bench) + custom benchmark design + acceptance criteria framework. Triggered when user says "agent testing", "agent acceptance", "benchmark", "SWE-bench", or "how to test an agent".
+description: AgentForge Phase 12 — Agent testing, acceptance, and benchmark evaluation. Test layering strategy + tool call mocking + industry benchmark index (SWE-bench/WebArena/AgentBench/τ-bench) + custom benchmark design + acceptance criteria framework. Triggered when user says "agent testing", "agent acceptance", "benchmark", "SWE-bench", or "how to test an agent".
 triggers:
   - agent testing
   - agent acceptance
@@ -15,7 +15,7 @@ metadata:
   category: "agent-engineering"
 ---
 
-# AgentForge Phase 11: Testing, Acceptance & Benchmarking
+# AgentForge Phase 12: Testing, Acceptance & Benchmarking
 
 > Previous step: `/agentforge-evolution` (Phase 10) | Series entry: `/agentforge`
 > Observability companion: `/agent-observability`
@@ -389,4 +389,4 @@ Output JSON: {"verdict": "PASS|FAIL|PARTIAL", "reason": "..."}
 
 ## Next Steps
 
-Phase 11 complete → Agent passes acceptance → Can enter `/agentforge-autoplan` for full pipeline retrospective, or enter `/agentforge-evolution` to add self-evolution capabilities.
+Phase 12 complete → Agent passes acceptance → Can enter `/agentforge-autoplan` for full pipeline retrospective, or enter `/agentforge-evolution` to add self-evolution capabilities.

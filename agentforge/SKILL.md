@@ -12,8 +12,8 @@ triggers:
   - audit an agent
   - optimize an existing agent
 metadata:
-  version: "2.1.0"
-  last_updated: "2026-04-08"
+  version: "2.2.0"
+  last_updated: "2026-04-12"
   category: "agent-engineering"
 ---
 
@@ -30,6 +30,50 @@ metadata:
 - **Tool Loop**: Execution loop (converts decisions into world-state changes)
 - **State**: Memory and context (ensures each step's decisions are based on historical information)
 - **Constraints**: Constraint system (prevents Agent from causing damage)
+
+## Framing: The Autonomy Slider, Not the "Year of Agents"
+
+> Source: Andrej Karpathy — ["2025 LLM Year in Review"](https://karpathy.bearblog.dev/year-in-review-2025/) and related 2025–2026 talks (verified 2026-04-12).
+
+Before choosing any phase below, internalize Karpathy's framing. Two quotes:
+
+1. **"When I see things like 'oh 2025 is the year of agents' I get very concerned… this is the decade of agents."** — Agents are a 10-year build-out, not a 2025 product launch. Your agentforge decisions should be made with a decade horizon, not a quarter.
+2. **"An autonomy slider that lets the human decide how much control to cede to the AI."** — Agent autonomy is not a boolean. It's a spectrum.
+
+### The Autonomy Slider (Tesla Analogy)
+
+Karpathy draws on his Tesla experience: **basic assistance → lane keeping → navigate-on-autopilot → FSD supervised**. Each level **delivers value on its own** and becomes the foundation for the next. The mistake is jumping to FSD without lane keeping working.
+
+Apply the same to agents:
+
+| Level | Agent analogue | User's cognitive load | Example |
+|---|---|---|---|
+| **0 — Suggestion** | AI suggests, human types | Very high | Autocomplete, inline hints |
+| **1 — Augmented LLM** | Single LLM call + retrieval + tools; human approves each action | High | Cursor tab, Copilot chat |
+| **2 — Workflow** | Predefined code path orchestrates LLM calls; human supervises outcomes | Medium | Prompt chaining, routing, evaluator-optimizer |
+| **3 — Scoped agent loop** | LLM directs its own loop within a narrow domain; human approves consequential actions | Low–Medium | Claude Code in a repo, Aider, Codex CLI |
+| **4 — Supervised autonomy** | Agent runs multi-hour tasks, human reviews output + rare interruptions | Low (review-only) | Devin-style task agents, background research agents |
+| **5 — Full autonomy** | Agent operates with minimal oversight over open-ended goals | Minimal (exception only) | Not production-ready in 2026 per Karpathy; aspirational |
+
+### Decision axis for Phase 0
+
+For any agent project, **two orthogonal questions** must be answered **before** you pick a loop paradigm:
+
+1. **What's the minimum autonomy level that delivers user value?** — Start one level lower than feels necessary. Each level has 3–10× the engineering cost of the one below it.
+2. **Can the current model reliably achieve that level in your domain?** — If not, ship the level below and let the next model release upgrade you.
+
+**Karpathy's timeline (verified 2026-04-12)**:
+- **2025–2026**: Stronger code/ops copilots + early robust UI-control (we are here).
+- **2027–2029**: Memory adapters + autonomy sliders reaching 70–90% on scoped workflows.
+- **2030–2035**: Broad enterprise-grade agent platforms with measurable SLAs.
+
+**Implication**: if you are building an agent in 2026 aimed at Level 4+ autonomy, you are building a research artifact, not a product. Ship Level 2–3 first.
+
+### Why this framing is the most important thing in the series
+
+Every subsequent phase (architecture, tools, context, memory, …) is a **downstream consequence** of your autonomy-level target. A Level 1 augmented LLM doesn't need Phase 7 multi-agent or Phase 11 self-evolution. A Level 4 supervised autonomy agent needs **every** phase. Picking the wrong level is the root cause of the **1-in-10 production arrival rate** documented in agentforge-spec.
+
+**Iron rule**: your autonomy-level target is the single largest determinant of engineering cost and schedule. Set it deliberately, defend it against scope creep, revisit it whenever the underlying model family changes.
 
 ## Series Navigation
 
@@ -82,16 +126,22 @@ Route to the correct skill based on the user's current phase:
 → For cloud deployment: `/cloud-deployment`
 → For post-deployment verification: `/deploy-verifier`
 
-### Phase 9 → Full-Process Orchestration
-"One-button Phase 0→8, automatically handles mechanical decisions"
+### Phase 9 → Production Runtime
+"Agent deployed as a service — how to keep it alive, scale it, recover from failures?"
+→ **`/agentforge-production`**
+→ Skip if Agent is CLI-only (no service runtime needed)
+→ Covers: Brain/Hands/Session decoupling, lazy provisioning, credential isolation, observability, scaling
+
+### Phase 10 → Full-Process Orchestration
+"One-button Phase 0→9, automatically handles mechanical decisions"
 → **`/agentforge-autoplan`**
 
-### Phase 10 → Self-Evolution Core
+### Phase 11 → Self-Evolution Core
 "Has a runnable Agent, needs to add self-evolution capability"
 → **`/agentforge-evolution`**
 → Standalone series: `/selfevolving-agent-architecture` (20 skills)
 
-### Phase 11 → Testing, Acceptance & Benchmarking
+### Phase 12 → Testing, Acceptance & Benchmarking
 "How to test the Agent? How to set acceptance criteria? How does it compare to industry standards?"
 → **`/agentforge-benchmark`**
 
@@ -103,6 +153,34 @@ Route to the correct skill based on the user's current phase:
 
 ### Deep Self-Evolution
 More systematic self-evolution methodology → **`/selfevolving-agent-architecture`** (standalone series, 20 skills)
+
+## Phase Applicability by Agent Type (Quick Skip Guide)
+
+> Added 2026-04-11. Not every Agent type needs every Phase. Use this matrix to skip irrelevant Phases and focus effort.
+
+| Phase | Coding Agent | Webhook Agent | Research Agent | Data Agent | GUI/Browser Agent | Voice Agent | Personal Agent |
+|-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **P0 Spec** | MUST | MUST | MUST | MUST | MUST | MUST | MUST |
+| **P1 Architecture** | MUST | MUST | MUST | MUST | MUST | MUST | MUST |
+| **P2 Tools** | MUST | light | MUST | MUST | MUST | light | light |
+| **P3 Context** | MUST | skip | MUST | light | MUST | light | MUST |
+| **P4 Memory** | light | skip | light | skip | skip | skip | MUST |
+| **P5 Security** | MUST | MUST | light | MUST | MUST | light | light |
+| **P6 Harness** | MUST | light | light | light | light | light | light |
+| **P7 MultiAgent** | optional | skip | optional | skip | skip | skip | skip |
+| **P8 Ship** | MUST | MUST | MUST | MUST | MUST | MUST | MUST |
+| **P9 Production** | skip (CLI) | MUST | skip | optional | skip | MUST | optional |
+| **P10 Autoplan** | optional | optional | optional | optional | optional | optional | optional |
+| **P11 Evolution** | optional | skip | optional | skip | skip | skip | optional |
+| **P12 Benchmark** | MUST | light | MUST | light | light | light | light |
+
+**Legend**: MUST = core phase, don't skip | light = skim for relevant decisions only | skip = not applicable | optional = only if needed
+
+**Type-specific Phase guidance gaps** (known, to be addressed in future updates):
+- **Research Agent**: P3 lacks hallucination-rate control quantitative baselines
+- **Data Agent**: P5 lacks Agent-specific SQL injection guidance (differs from web app SQL injection)
+- **Voice Agent**: P1 Realtime API pricing needs update (now billed per audio second, not per token)
+- **GUI/Browser Agent**: P0 lacks screenshot vs CDP cost comparison at Practical budget tier
 
 ## How to Use
 

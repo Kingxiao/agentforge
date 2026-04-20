@@ -8,8 +8,8 @@ triggers:
   - should I use an Agent
   - agent spec
 metadata:
-  version: "2.0.0"
-  last_updated: "2026-04-06"
+  version: "2.1.0"
+  last_updated: "2026-04-12"
   category: "agent-engineering"
 ---
 
@@ -70,9 +70,65 @@ Pick the closest to your expectation:
 
 ---
 
+## Production Reality Check (Before Any Technical Discussion)
+
+> Added 2026-04-12. Source: Adaline Labs "Multi-Agent Systems Need a Product Control Plane" (2026-04-11, https://labs.adaline.ai/p/multi-agent-systems-product-control-plane) + Gartner 2027 forecast + METR research.
+
+Before any technical decision, face three empirical numbers from 2025–2026 production data:
+
+| Reality | Number | Source |
+|---|---|---|
+| **Production arrival rate** | "Only 1 in 10 agentic AI use cases reached production in the past year" | Adaline Labs, 2026-04 |
+| **Projected cancellation rate** | "40% of agentic AI projects will be canceled by 2027" — escalating costs + unclear ROI | Gartner via Adaline Labs |
+| **Capability growth rate** | "AI task duration doubling every seven months" | METR research, 2025-2026 |
+
+**Implication for Phase 0**: the default probability you're about to build an Agent that never sees production is **~90%**. The goal of this Phase is not "design a better agent" — it is to **put your project on the 10% side** by answering the gates below honestly. If any gate below fails, stop and choose a simpler architecture. Delivery of a workflow that ships beats an agent that doesn't.
+
+## Gate 0: Workflow or Agent?
+
+> Source: Anthropic "Building Effective Agents" by Erik Schluntz & Barry Zhang (2024-12-19, https://www.anthropic.com/research/building-effective-agents). This is the **front gate** Anthropic itself recommends before any agent architecture decision.
+
+**Definitions (verbatim from Anthropic)**:
+- **Workflow** — "systems where LLMs and tools are orchestrated through predefined code paths"
+- **Agent** — "systems where LLMs dynamically direct their own processes and tool usage, maintaining control over how they accomplish tasks"
+
+**Default answer: not an agent.** Anthropic's explicit guidance: "for many applications, optimizing single LLM calls with retrieval and in-context examples is usually enough." Agentic systems "trade latency and cost for better task performance, and you should consider when this tradeoff makes sense." The autonomous nature brings "higher costs, and the potential for compounding errors."
+
+### Augmented LLM (the atomic building block)
+
+Before workflow or agent, the atomic unit is an **Augmented LLM**: "an LLM enhanced with augmentations such as retrieval, tools, and memory" that can generate search queries, select tools, and determine what to retain. Most production systems are composed of **one or more Augmented LLMs**, not of agents.
+
+### Five Workflow Patterns (use before reaching for an agent)
+
+If a plain Augmented LLM call is not enough, try these **workflow patterns** (predefined code paths) in order of simplicity — **all are simpler and more reliable than a full agent**:
+
+1. **Prompt chaining** — fixed sequence of LLM calls, each step processes the previous output.
+2. **Routing** — classify input → dispatch to one specialized sub-prompt/model.
+3. **Parallelization** — run multiple LLM calls simultaneously (sectioning for independent subtasks, voting for majority-vote quality).
+4. **Orchestrator–workers** — central LLM breaks down dynamic tasks and delegates to worker LLMs.
+5. **Evaluator–optimizer** — one LLM generates, another critiques, loop until acceptance.
+
+**Decision order**:
+```
+Single Augmented LLM call → Can solve? → Yes: stop here
+      ↓ No
+Prompt chaining / Routing / Parallelization → Can solve? → Yes: stop here
+      ↓ No
+Orchestrator–workers / Evaluator–optimizer → Can solve? → Yes: stop here
+      ↓ No
+Agent (autonomous loop) — proceed to First Question below
+```
+
+**Anthropic's three implementation principles** (apply whether workflow or agent):
+1. **Simplicity** — maintain it in agent design; every added component must earn its keep.
+2. **Transparency** — explicitly show the planning steps so humans can audit.
+3. **Agent-computer interface (ACI)** — craft through thorough tool documentation and testing. (Phase 2 agentforge-tools elaborates.)
+
+**Iron rule**: if Gate 0 can be satisfied by a workflow or an Augmented LLM, **do not build an agent**. The cheapest, most reliable agent is the one you didn't build.
+
 ## First Question: Should You Build an Agent?
 
-Not every AI application needs an Agent. The core characteristic of an Agent is **autonomous looping** — perceive → reason → act → observe → reason again. If your scenario doesn't need this loop, a plain LLM API call is simpler and more controllable.
+Not every AI application needs an Agent. The core characteristic of an Agent is **autonomous looping** — perceive → reason → act → observe → reason again. If Gate 0 above already gave you a workflow solution, this section doesn't apply. Only proceed here when workflow patterns have been ruled out.
 
 ### Agent Suitability Decision Tree
 
@@ -93,8 +149,31 @@ What does your scenario need?
    ├─ Side-effect execution (modify files, run commands, call APIs)
    ├─ Cross-session state persistence (remembers what was done before)
    └─ Dynamic tool selection (decides which tool to use based on situation)
-   → **Agent is needed**
+   → **Agent is needed** — but first, check if someone already built it ↓
 ```
+
+### Existing Solution Scan (Before Building)
+
+> Added 2026-04-11. Audit finding: users who pass the suitability check above jump straight into architecture design, missing off-the-shelf solutions that solve 80%+ of their use case with zero code.
+
+Before designing a custom Agent, search for existing solutions:
+
+```
+Does an off-the-shelf product/action already do this?
+│
+├─ GitHub PR review → anthropics/claude-code-action (free, API cost only)
+├─ Slack/Discord bot → OpenClaw built-in Channel plugins
+├─ Code generation in IDE → Cursor / Cline / Claude Code (already exist)
+├─ Web scraping + analysis → browser-use / Playwright + LLM
+├─ Data analysis pipeline → smolagents CodeAgent + pandas
+│
+└─ Search strategy:
+   1. Search "[your use case] AI agent" or "[your use case] GitHub Action"
+   2. Check MCP server registry (modelcontextprotocol.io) for existing tool integrations
+   3. Check if your target platform (GitHub/Slack/Notion) has an official AI integration
+```
+
+**Decision**: If an existing solution covers ≥ 80% of your needs, **use it first**. Build custom only when the remaining 20% is critical to your use case. The cheapest, most reliable Agent is the one you don't build.
 
 ### Five-Layer Feasibility Check
 
@@ -103,10 +182,21 @@ Agent-suitable ≠ Agent-feasible. After passing the suitability check, five mor
 | Layer | Check Question | Failure Consequence |
 |-------|---------------|-------------------|
 | Technical | Can the LLM complete core reasoning? Are tool APIs available? | Cannot build |
-| Cost | Is per-execution token cost acceptable? | Losing money |
+| Cost | Is per-execution token cost acceptable? (include non-LLM costs — see cost formula below) | Losing money |
 | Supply Chain | Is the LLM/API provider stable? Is there a degradation plan? | Goes down at any moment |
 | User Behavior | Can users accept Agent latency and uncertainty? | No one uses it |
 | Business Model | Can Agent value cover operating costs? | Unsustainable |
+| **Consequence Severity** | If the Agent's output is wrong, what happens? | Ranges from "minor inconvenience" to "irreversible real-world harm" |
+
+**Consequence Severity tiers** (determines required human-in-the-loop level):
+
+| Tier | If Agent is wrong... | Required safeguard |
+|------|---------------------|-------------------|
+| **Low** | User wastes time, redoes task (code review, summarization) | Standard approval flow |
+| **Medium** | Incorrect information published, reputation damage (content agent, research agent) | Human review before external output |
+| **High** | Financial loss, legal liability, safety risk (trading, medical, legal agents) | Human approval on every consequential action + domain expert review of acceptance criteria |
+
+This is not a domain-specific check — it's a **universal consequence assessment**. The Agent itself doesn't need to know about finance or medicine; it needs to know "my output triggers irreversible real-world actions" and escalate accordingly.
 
 ## Second Question: What Type of Agent?
 
@@ -115,13 +205,13 @@ Agent-suitable ≠ Agent-feasible. After passing the suitability check, five mor
 | Type | Core Capability | Representatives | Key Challenges |
 |------|----------------|-----------------|----------------|
 | **Coding Agent** | Read/write code + execute commands + test verification | Claude Code, Codex, Cursor, Aider, OpenCode | Edit precision, security isolation |
-| **Research Agent** | Search + read + cross-validate + synthesize | Perplexity, AutoResearch | Hallucination control (citation hallucination rate 26-37%, 2026 measured), source tracing, external validation hooks |
+| **Research Agent** | Search + read + cross-validate + synthesize | Perplexity, AutoResearch | Hallucination control (citation fabrication > 30% in chatbot contexts, 58-88% in legal domains — 2025-2026 benchmarks), source tracing, external validation hooks |
 | **Data Agent** | Query + analyze + visualize + report | Various BI Agents | Data security, SQL injection |
 | **Workflow Agent** | Orchestrate multi-step business processes | n8n AI, Zapier AI | Error recovery, idempotency |
 | **Personal Agent** | Long-term memory + personalization + proactive triggers | Letta, MemU | Memory management, privacy |
 | **Agent OS / Platform** | Multi-channel gateway + plugin system + Skill orchestration | OpenClaw, Goose | Multi-channel adaptation, plugin isolation |
-| **GUI Agent** | Screenshot understanding + click/keyboard operations + visual feedback loop | Claude Computer Use, Browser-use, UI-TARS | Screenshot token cost (~1500/image), action precision, accidental trigger prevention |
-| **Voice / Realtime Agent** | Real-time audio stream + <500ms response + bidirectional WebSocket | OpenAI Realtime API, Gemini Live | WebSocket long connection management, interruption handling, concurrent conversation isolation |
+| **GUI Agent** | DOM/AX tree serialization + action execution + event-driven observation loop | browser-use (web-native, no screenshots), Claude Computer Use (screenshots), UI-TARS | **Web-native path (browser-use)**: no screenshot tokens — uses CDP AX tree instead; key challenges: DOM serialization fidelity, action parameter isolation (special params never in LLM schema), watchdog pattern for reliable event detection. **Screenshot path (Computer Use)**: ~1,600 tokens/image (verified: `width×height/750`, Anthropic docs 2026-04-11), $4.80 per 1,000 screenshots with Sonnet. Monthly cost at 50 tasks/day × 10 screenshots/task = **$72/month** (Practical budget). Web-native path: $0 image tokens |
+| **Voice / Realtime Agent** | Real-time audio stream + <500ms response + bidirectional WebSocket | OpenAI Realtime API (gpt-realtime), Gemini Live | WebSocket long connection management, interruption handling, concurrent conversation isolation. **Cost**: audio input $0.06/min + output $0.24/min (verified 2026-04-11); Path A (ASR+text) is ~12x cheaper |
 | **Learning Agent** | Trajectory capture + skill synthesis + self-benchmark + closed learning loop | Hermes (NousResearch) | Validation gate design (no gate = error amplification), ephemeral context hygiene in training data, RL infrastructure coupling |
 
 ### Research Agent Search Strategy Design Points
@@ -245,8 +335,41 @@ After completing the 5 required questions, output the following document. **[Use
 - **Tool Interface**: [Agent auto-designs: minimum viable / production-grade]
 - **Multi-Agent**: [Agent auto-judges by task complexity: Yes / No, with rationale]
 - **Capability Planes**: [Agent auto-declares: input / processing / output]
-- **Cost Estimate**: [Agent auto-calculates: per-execution cost + monthly estimate, with high-consumption scenario warnings]
+- **Cost Estimate**: [Agent auto-calculates using the formula below, not just per-call cost]
+
+#### Cost Estimation Formula (mandatory — per-call cost is misleading)
+
+```
+Monthly cost = per_call_token_cost × avg_loop_iterations × daily_calls × 30
+             × (1 + cache_miss_rate × cache_penalty_multiplier)
+
+Where:
+  per_call_token_cost = (input_tokens × input_price + output_tokens × output_price) / 1M
+  avg_loop_iterations = 5-15 for typical Agent tasks (NOT 1)
+  cache_miss_rate = 0.1-0.4 depending on prompt stability
+  cache_penalty_multiplier = 9 (cache miss costs 10x vs hit; 90% savings lost)
+```
+
+**Example**: PR Review Agent with Claude Sonnet 4.6 ($3/$15 per MTok)
+- Per-call: ~2K input + 1K output = $0.021
+- Per-task (1 iteration, Webhook): $0.021 × 1 = $0.02
+- Monthly (5 PRs/day): $0.02 × 5 × 30 = **$3/month** ← fits Exploration budget
+- Monthly with cache misses (40%): $3 × 1.36 = **$4.08/month**
+
+**Example**: Coding Agent with Claude Sonnet 4.6
+- Per-call: ~8K input + 4K output = $0.084
+- Per-task (avg 8 iterations): $0.084 × 8 = $0.67
+- Monthly (10 tasks/day): $0.67 × 10 × 30 = **$201/month** ← barely fits Practical budget
+- Monthly with cache misses (20%): $201 × 1.18 = **$237/month**
+
+**Warning thresholds**: If estimated monthly cost exceeds 80% of budget tier ceiling, flag to user with specific cost drivers
+
+**Non-LLM cost check** (mandatory): LLM tokens are often the minority of total Agent operating cost. After computing the LLM cost above, ask:
+- Does this Agent consume paid external data APIs? (market data, geospatial, medical databases, legal corpora) → Add their monthly cost
+- Does this Agent require specialized infrastructure? (GPU for local models, real-time data feeds, dedicated servers) → Add infrastructure cost
+- Total system cost = LLM cost + external data cost + infrastructure cost. If total exceeds budget tier, flag before proceeding to Phase 1
 - **Quantified Acceptance**: [Agent translates user's natural language acceptance criteria into measurable indicators]
+- **Domain expertise flag**: [If acceptance criteria involve specialized domains (finance, medicine, law, safety-critical systems), flag: "These acceptance criteria require domain expert review — the Agent can translate them into measurable indicators but cannot assess whether they are sufficient for this domain"]
 
 ---
 ## ▌Technical Constraints (Only User-Declared Limitations)
@@ -287,9 +410,11 @@ After completing the 5 required questions, output the following document. **[Use
 ## Spec Checklist
 
 - [ ] Passed suitability decision tree (confirmed Agent needed vs. ChatBot/pipeline)
+- [ ] Existing solution scan completed (confirmed no off-the-shelf product covers ≥80% of use case)
 - [ ] Passed five-layer feasibility check
 - [ ] Agent type determined (including GUI / Voice judgment)
 - [ ] **Voice / Realtime Agent**: Confirmed "degraded path" (ASR→text→Async Generator Loop) vs "true realtime path" (WebSocket + Realtime API) — these are architecturally incompatible, Phase 1 re-selection cost is high
+- [ ] **GUI / Browser Agent**: Confirmed "web-native path" (CDP AX tree, browser-use pattern) vs "screenshot path" (Computer Use) — web-native eliminates ~1500 tokens/image cost; screenshot path required for native desktop/non-web targets. Decision is architecturally incompatible, lock down in Phase 0
 - [ ] Interaction pattern determined
 - [ ] User profile defined
 - [ ] Security requirement level clarified

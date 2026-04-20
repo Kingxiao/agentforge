@@ -2,9 +2,9 @@
 name: agentforge-ship
 description: AgentForge Phase 8 - Agent packaging and release. Release form selection + per-language packaging recipes + CI/CD + version management. Triggered when user says "Agent release", "Agent packaging", "Agent deployment", or "ship agent".
 triggers:
-  - agent release
-  - agent packaging
-  - agent deployment
+  - Agent release
+  - Agent packaging
+  - Agent deployment
   - ship agent
   - agent packaging
 metadata:
@@ -162,7 +162,7 @@ docker run --secret id=api_key,env=ANTHROPIC_API_KEY agent:latest
 # ✓ Method 3: .env file mount (local development)
 docker run --env-file .env agent:latest
 
-# ✗ Absolutely prohibited: ENV or ARG in Dockerfile to write key
+# ✗ Absolutely prohibited: ENV or ARG in Dockerfile写入 key
 # ENV ANTHROPIC_API_KEY=sk-xxx ← baked into image layer, docker history visible
 ```
 
@@ -186,7 +186,7 @@ This is a more fundamental architectural fork than "HTTP vs Socket" — it direc
 Outgoing (Agent → Slack)
   Agent actively sends messages to Slack (notifications, reports, pushes)
   Implementation: Incoming Webhook URL or Web API chat.postMessage
-  Use cases: Post-meeting summary push, monitoring alert pushes
+  Use cases: Post-meeting summary推送, monitoring alert pushes
   Not needed: Bot Token read permissions, event listening
 
 Incoming (Slack → Agent)
@@ -225,7 +225,7 @@ Production (has public HTTPS endpoint)
 
 | Change | Deadline | Impact |
 |--------|----------|--------|
-| Legacy Bot Token deprecation | 2025-03-31 | All `xoxb-` old-format tokens are expired, must migrate to OAuth App |
+| Legacy Bot Token deprecation | 2025-03-31 | All `xoxb-` old-format tokens失效, must migrate to OAuth App |
 | `files.upload` API deprecation | 2025-11-12 | Use `files.getUploadURLExternal` + `files.completeUploadExternal` |
 | Non-Marketplace App rate limit tightening | 2025 all year | Small app concurrent request limits reduced; batch messaging needs retry logic |
 
@@ -276,7 +276,7 @@ Local + ngrok / Cloudflare Tunnel: test HTTP mode
     ngrok http 3000 → get temporary HTTPS URL → fill in Slack App config
     Cloudflare Tunnel: production-grade tunnel, free, low latency
     ↓ Launch
-Production: HTTP mode + proper HTTPS domain (Nginx/Caddy reverse proxy + Let's Encrypt)
+Production: HTTP mode +正式 HTTPS域名 (Nginx/Caddy reverse proxy + Let's Encrypt)
 ```
 
 **Discord Bot differences (Python discord.py / TypeScript discord.js)**:
@@ -328,7 +328,7 @@ jobs:
 ### CI/CD Tiering
 
 | Tier | Trigger | Checks |
-|------|---------|--------|
+|------|---------|---------|
 | L1: Fast checks | Every push | lint + typecheck + unit tests |
 | L2: Full validation | PR merge | Integration tests + security scan + build |
 | L3: Release | Tag push | Multi-platform build + publish to package manager + GitHub Release |

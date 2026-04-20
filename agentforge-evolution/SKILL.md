@@ -1,6 +1,6 @@
 ---
 name: agentforge-evolution
-description: AgentForge Phase 10 - Agent Self-Evolution Design. L0-L3b evolution level gradient + principles (DGM/Voyager/DSPy) + architectural patterns + safety boundaries + implementation code. Triggered when user says "self-evolving agent", "agent self-modification", "self-evolution architecture", "evolution agent".
+description: AgentForge Phase 11 - Agent Self-Evolution Design. L0-L3b evolution level gradient + principles (DGM/Voyager/DSPy) + architectural patterns + safety boundaries + implementation code. Triggered when user says "self-evolving agent", "agent self-modification", "self-evolution architecture", "evolution agent".
 triggers:
   - self-evolving agent
   - agent self-modification
@@ -9,14 +9,14 @@ triggers:
   - self-evolving
   - self-improvement agent
 metadata:
-  version: "1.0.0"
-  last_updated: "2026-04-07"
+  version: "1.1.0"
+  last_updated: "2026-04-12"
   category: "agent-engineering"
 ---
 
-# AgentForge Phase 10: Agent Self-Evolution Design
+# AgentForge Phase 11: Agent Self-Evolution Design
 
-> Previous: `/agentforge-autoplan` (Phase 9) | Series entry: `/agentforge`
+> Previous: `/agentforge-autoplan` (Phase 10) | Next: `/agentforge-benchmark` (Phase 12) | Series entry: `/agentforge`
 > Deep Zig implementation: `/selfevolving-agent-architecture`
 
 ## Core Principles
@@ -24,359 +24,124 @@ metadata:
 > **Self-evolution is not "agent can modify code" — it is "agent can reliably, safely, and purposefully improve its own behavior."**
 
 The gap between the two:
-- Can modify code → Any tool call can do this
-- Reliable → Has tests to verify, behavior known before and after changes
-- Safe → Has rollback, has circuit breakers, has blast radius limits
-- Purposeful → Modification direction aligns with system-wide goals (not local optimization causing global degradation)
+- **Can modify code** — any tool call can do this.
+- **Reliable** — has tests to verify; behavior known before and after changes.
+- **Safe** — has rollback, circuit breakers, blast-radius limits.
+- **Purposeful** — modification aligns with system-wide goals (not local optimization causing global degradation).
 
-Self-evolution is a **cross-cutting concern**: It affects Phase 0 (Spec declaring level) → Phase 1 (architecture supporting rollback) → Phase 5 (safety boundaries) → Phase 6 (Harness feedback loop) → Phase 7 (Platform mode).
+Self-evolution is a **cross-cutting concern**: affects Phase 0 (declaring level) → Phase 1 (architecture supporting rollback) → Phase 5 (safety boundaries) → Phase 6 (Harness feedback loop) → Phase 7 (Platform mode).
 
----
+## Self-Evolution Level Gradient (L0–L3b)
 
-## Self-Evolution Level Gradient (L0-L3b)
-
-```
-L0: Static Agent
-    ↓ Behavior entirely determined by code/prompt, no runtime changes
-L1: Monitoring Layer
-    ↓ Observe own behavior, record metrics, manual analysis
-    → Output: diagnosis report, anomaly alerts
-L2: Reactive Layer
-    ↓ Detects known problem → executes predefined fix path
-    → Output: automatic retry, degradation, restart
-L3a: Suggestion Layer
-    ↓ Generates improvement plan → human approval → executes
-    → Output: PR / diff / improvement proposal
-L3b: Autonomous Layer
-    ↓ Passes safety check → automatically applies changes → verifies
-    → Output: automatic merge, automatic deployment (with constraints)
-```
+- **L0 — Static Agent**: behavior entirely determined by code/prompt; no runtime changes.
+- **L1 — Monitoring Layer**: observe own behavior, record metrics, manual analysis. Output: diagnosis report, anomaly alerts.
+- **L2 — Reactive Layer**: detects known problem → executes predefined fix path. Output: automatic retry, degradation, restart.
+- **L3a — Suggestion Layer**: generates improvement plan → human approval → executes. Output: PR / diff / proposal.
+- **L3b — Autonomous Layer**: passes safety check → automatically applies changes → verifies. Output: automatic merge / deploy (with constraints).
 
 **Level selection principles**:
-- L0-L1: Starting point for all agents, no special design needed
-- L2: Requires predefined "known problem → known solution" mapping table
-- L3a: Requires LLM to generate plans + human approval UI/process
-- L3b: Requires complete safety framework (Circuit Breaker + test gate + rollback mechanism), **not recommended to jump directly to this level before system matures**
-
----
+- L0–L1: starting point for all agents; no special design needed.
+- L2: requires predefined "known problem → known solution" mapping table.
+- L3a: requires LLM to generate plans + human approval UI/process.
+- L3b: requires complete safety framework (Circuit Breaker + test gate + rollback). **Not recommended to jump directly to this level before system matures.**
 
 ## Academic & Engineering Principles
 
-### DGM (Darwin Gödel Machine)
-**Core idea**: Agent uses formal proofs to verify "the proposed modification will improve performance" before applying it. Passed the proof = safe to change itself.
-**Mapping to LLM Agent**: LLM doesn't do formal proofs, but can use test suites instead — passes the test suite = safe to change. Test suite is the practical approximation of DGM's idea.
-
-### Voyager (Minecraft Agent)
-**Core idea**: Don't directly modify agent code; instead build a reusable Skill library. Each execution, agent abstracts successful behavior sequences into new Skills stored in the library; next time encountering similar tasks, directly reuse.
-**Mapping to LLM Agent**: Skill accumulation in Memory = Voyager's Skill library. Each time successfully completing a task type, extract Skill → inject into Memory → faster next time.
-
-### DSPy (Automatic Prompt Optimization)
-**Core idea**: Treat Prompt as a learnable parameter, automatically optimize Prompt to maximize task metrics (rather than manual writing).
-**Mapping to LLM Agent**: System prompts shouldn't be hand-written and locked; they should be optimizable variables. One implementation path for L3b: Agent automatically experiments with different prompt variants, keeps the ones that work better.
-
-### Letta (MemGPT)
-**Core idea**: Agent can actively read and write its own Memory (not just passively accumulating). Agent can CRUD its own core memories, enabling self-updates.
-**Mapping to LLM Agent**: Memory as an editable asset — agent can delete stale memories, organize contradictory information, write new rules. This is the lightest self-evolution implementation.
-
-### MemU (Pipeline Versioning)
-**Core idea**: Each Pipeline change produces a version (revision); versions can be compared by metrics; can rollback to the previous better version.
-**Mapping to LLM Agent**: Self-evolution requires versioning. Each modification = one revision, compare metrics = KEEP/DISCARD decision, fail = git reset to previous tag.
-
----
+- **DGM (Darwin Gödel Machine)** — agent uses formal proofs to verify "the proposed modification will improve performance" before applying it. Passed the proof = safe to change itself. **Mapping to LLM Agent**: LLM doesn't do formal proofs, but can use test suites instead — passes the suite = safe. Test suite is the practical approximation.
+- **Voyager (Minecraft Agent)** — don't directly modify agent code; build a reusable Skill library. Each execution, agent abstracts successful behavior sequences into new Skills stored in library; next time encountering similar tasks, reuse directly. **Mapping**: Skill accumulation in Memory = Voyager's Skill library.
+- **DSPy (Automatic Prompt Optimization)** — treat Prompt as a learnable parameter, automatically optimize Prompt to maximize task metrics (rather than manual writing). **Mapping**: system prompts shouldn't be hand-written and locked; they should be optimizable variables. L3b path: auto-experiment with different prompt variants, keep the ones that work better.
+- **Letta (MemGPT)** — agent can actively read/write its own Memory (not just passively accumulate). CRUD own core memories, enabling self-updates. **Mapping**: memory as an editable asset — the lightest self-evolution implementation.
+- **MemU (Pipeline Versioning)** — each Pipeline change produces a version (revision); versions compared by metrics; can rollback to the previous better version. **Mapping**: self-evolution requires versioning. Each modification = one revision; compare metrics = KEEP/DISCARD; fail = git reset to previous tag.
 
 ## Architectural Pattern: Self-Evolution Diagnosis Loop
 
-All L2-L3b implementations share this basic loop:
-
-```
-┌─────────────────────────────────────────────┐
-│           Self-Evolution Diagnosis Loop      │
-│                                             │
-│  Monitor system metrics                     │
-│       ↓                                     │
-│  Trigger diagnosis (scheduled or threshold) │
-│       ↓                                     │
-│  Run diagnostic tool suite                  │
-│       ↓                                     │
-│  Classify results (True Finding / False Positive) │
-│       ↓                                     │
-│  Generate fix candidate plans                │
-│       ↓                                     │
-│  Safety check (tests + blast radius)         │
-│       ↓                                     │
-│  ┌───────────────┐   ┌──────────────────┐   │
-│  │ L3b: Pass →  │   │ L3a: Proposal to │   │
-│  │ Auto-apply   │   │ human for review │   │
-│  └───────────────┘   └──────────────────┘   │
-│       ↓                                     │
-│  Verify fix effect → Record to Evolution Log │
-│       ↓                                     │
-│  Update circuit breaker state               │
-└─────────────────────────────────────────────┘
-```
-
----
+All L2–L3b implementations share this basic loop: **Monitor system metrics → trigger diagnosis (scheduled or threshold) → run diagnostic tool suite → classify results (True Finding / False Positive) → generate fix candidate plans → safety check (tests + blast radius) → (L3b) auto-apply OR (L3a) proposal to human for review → verify fix effect → record to Evolution Log → update circuit breaker state.**
 
 ## Safety Boundary Design (L3b Must Implement)
 
 ### Circuit Breaker
 
-```python
-class EvolutionCircuitBreaker:
-    def __init__(self, failure_threshold=3, success_reset=5):
-        self.consecutive_failures = 0
-        self.state = "CLOSED"  # CLOSED=normal OPEN=stop self-evolution
-        self.failure_threshold = failure_threshold
-
-    def record_result(self, success: bool):
-        if success:
-            self.consecutive_failures = 0
-        else:
-            self.consecutive_failures += 1
-            if self.consecutive_failures >= self.failure_threshold:
-                self.state = "OPEN"
-                # Notify human intervention
-                alert("Circuit breaker tripped: self-evolution halted")
-
-    def is_allowed(self) -> bool:
-        return self.state == "CLOSED"
-```
+`EvolutionCircuitBreaker` tracks `consecutive_failures` with states `CLOSED` (normal) / `OPEN` (self-evolution halted). `record_result(success)` resets counter on success; otherwise increments — once `consecutive_failures >= failure_threshold` (default 3), state flips to `OPEN` and a human-intervention alert fires. `is_allowed()` returns `state == "CLOSED"`. Requires an external `success_reset` count to close the breaker again.
 
 ### Blast Radius Limit
 
-```python
-SAFE_EVOLUTION_ZONES = [
-    "config/prompts/**",     # Prompts can be auto-modified
-    "memory/**",             # Memory can be auto-modified
-]
+Define two allowlist/blocklist sets as module constants:
 
-FORBIDDEN_ZONES = [
-    "src/auth/**",           # Auth code forbidden from auto-modification
-    "src/security/**",       # Security code forbidden from auto-modification
-    ".github/workflows/**",  # CI/CD forbidden from auto-modification
-]
+- **`SAFE_EVOLUTION_ZONES`**: `config/prompts/**` (prompts can be auto-modified), `memory/**` (memory can be auto-modified).
+- **`FORBIDDEN_ZONES`**: `src/auth/**` (auth code), `src/security/**` (security code), `.github/workflows/**` (CI/CD).
 
-def check_blast_radius(patch: Patch) -> bool:
-    for file in patch.modified_files:
-        if any(fnmatch(file, zone) for zone in FORBIDDEN_ZONES):
-            return False  # Touched forbidden zone → human approval required
-    return True
-```
+`check_blast_radius(patch)` walks `patch.modified_files` and returns False if any file matches a forbidden zone via `fnmatch` → human approval required.
 
 ### Test Gate (Before/After Comparison)
 
-```python
-def safe_apply_patch(patch: Patch, test_suite: TestSuite) -> bool:
-    # 1. Apply on isolated branch
-    branch = create_isolation_branch()
-    apply(patch, branch)
-
-    # 2. Run tests
-    result = test_suite.run(branch)
-
-    # 3. Zero regression check (stricter than delta check)
-    regressions = [t for t in result.before if t.passed
-                   and not result.after_map[t.id].passed]
-    if regressions:
-        rollback(branch)
-        return False
-
-    # 4. Overall metrics must improve
-    if result.delta <= 0:
-        rollback(branch)
-        return False
-
-    # 5. Commit
-    merge(branch)
-    return True
-```
-
----
+`safe_apply_patch(patch, test_suite)`:
+1. Apply on an **isolated branch** (`create_isolation_branch()`).
+2. Run the full test suite on the branch.
+3. **Zero regression check** (stricter than delta check): no test that was `passed` before is `failed` after. Any regression → rollback.
+4. **Overall metrics must improve** — `result.delta > 0` required. Otherwise rollback.
+5. Only on all checks passing: merge.
 
 ## Self-Evolution Evolution Log Design
 
 ### Quick Start: Record Feedback with Shell Script
 
-Lowest-cost starting approach — no Python, no framework needed:
+Lowest-cost starting approach — no Python, no framework:
 
 ```bash
-# Install (copy script to project scripts/ directory)
 cp /path/to/agentforge-evolution/scripts/record_feedback.sh ./scripts/
 chmod +x ./scripts/record_feedback.sh
 
-# Usage: Record immediately after discovering agent behavior issue
-./scripts/record_feedback.sh prompt "PR review suggestions contain 'please' and other redundant words, user must clean twice" ""
+./scripts/record_feedback.sh prompt "PR review suggestions contain 'please' and other redundant words" ""
 ./scripts/record_feedback.sh harness "Stop hook triggers on npm install, infinite loop" "Add stop_hook_active detection"
-./scripts/record_feedback.sh context "Response quality noticeably drops after 180K tokens, need earlier compression trigger" ""
-
-# View records
-cat evolution_log.jsonl | python3 -c "import sys,json; [print(json.dumps(json.loads(l), ensure_ascii=False)) for l in sys.stdin]"
-
-# Summarize by category (find highest frequency issues)
-cat evolution_log.jsonl | python3 -c "
-import sys, json, collections
-entries = [json.loads(l) for l in sys.stdin]
-c = collections.Counter(e['category'] for e in entries)
-for cat, count in c.most_common():
-    print(f'{count:3d}  {cat}')
-"
+./scripts/record_feedback.sh context "Response quality drops after 180K tokens" ""
 ```
 
-> Script: `agentforge-evolution/scripts/record_feedback.sh`
-> No jq dependency, no Python dependency, just bash. `EVOLUTION_LOG` env var can override output file path.
+Summarize by category via `jq`/`python3` one-liners to find highest-frequency issues. Script has no `jq` / Python dependency, just bash. `EVOLUTION_LOG` env var overrides output file path.
 
 ### Evolution Log Format
 
-Evolution Log is the audit trail and debugging foundation for self-evolution systems:
+Audit trail + debug foundation for self-evolution. JSONL, one entry per run. Fields: `run_id`, `timestamp`, `trigger` (what caused this diagnosis cycle), `diagnosis` (`finding`, `confidence`, `evidence[]`), `patch` (`type`, `diff`, `blast_radius`), `test_result` (`before {pass, fail}`, `after {pass, fail}`, `regressions`), `decision` (`KEEP` / `DISCARD`), `circuit_breaker` (`CLOSED` / `OPEN`).
 
-```json
-{
-  "run_id": 42,
-  "timestamp": "2026-04-07T10:30:00Z",
-  "trigger": "error_rate_threshold_exceeded",
-  "diagnosis": {
-    "finding": "context_compression_too_aggressive",
-    "confidence": 0.78,
-    "evidence": ["avg_response_quality: -15%", "user_corrections: +30%"]
-  },
-  "patch": {
-    "type": "config_change",
-    "diff": "compression_threshold: 80000 -> 100000",
-    "blast_radius": "config/context.yaml"
-  },
-  "test_result": {
-    "before": {"pass": 145, "fail": 5},
-    "after": {"pass": 148, "fail": 2},
-    "regressions": 0
-  },
-  "decision": "KEEP",
-  "circuit_breaker": "CLOSED"
-}
-```
-
----
-
-## Self-Evolution Level & agentforge Phase Cross-Impact
-
-> Level description (see gradient definition above): L1 = Monitoring, L2 = Reactive, L3a = Suggestion (human approval), L3b = Autonomous (auto-apply)
+## Self-Evolution Level × agentforge Phase Cross-Impact
 
 | Phase | L1 | L2 | L3a (Human Approval) | L3b (Auto-Execute) |
 |-------|----|----|--------------|--------------|
-| **0 Spec** | Declare target level | Predefined fix mapping table | Approval flow design needs | Safety framework needs |
+| **0 Spec** | Declare target level | Predefined fix mapping table | Approval flow design | Safety framework needs |
 | **1 Architecture** | No special needs | State persistence | Versioned storage | git worktree isolation |
-| **4 Memory** | Record diagnosis history | Fix template library | Skill accumulation (Voyager mode) | Auto CRUD Memory |
-| **5 Security** | Audit log | Circuit breaker mechanism | Approval UI | Circuit Breaker + Blast Radius |
+| **4 Memory** | Record diagnosis history | Fix template library | Skill accumulation (Voyager) | Auto CRUD Memory |
+| **5 Security** | Audit log | Circuit breaker | Approval UI | Circuit Breaker + Blast Radius |
 | **6 Harness** | Monitoring hook | Auto-retry hook | PR approval hook | Test gate hook |
-| **7 Multi-Agent** | — | — | — | Platform type needs invariant rules to guard behavior bottom line, prevent self-evolution from losing control |
+| **7 Multi-Agent** | — | — | — | Platform needs invariant rules to guard behavior bottom line |
 | **8 Ship** | — | — | — | Auto PR + version number management |
-
----
 
 ## Production Trajectory Infrastructure (Hermes Pattern)
 
-> Academic analogies (DGM/Voyager/DSPy) are now implemented in production. Hermes (NousResearch, 40K+ stars) is the reference implementation. The patterns below are extracted from source-level analysis.
+> Academic analogies (DGM/Voyager/DSPy) now implemented in production. Hermes (NousResearch, 40K+ stars) is the reference implementation.
 
 ### Trajectory Collection Architecture
 
-**ShareGPT format + outcome split** is the minimal viable trajectory infrastructure:
+**ShareGPT format + outcome split** is the minimal viable trajectory infrastructure. `save_trajectory(trajectory, model, completed)` appends to `trajectory_samples.jsonl` (positive examples, task completed) or `failed_trajectories.jsonl` (negative examples, task failed). Both files directly compatible with Axolotl / TRL / Unsloth fine-tuning pipelines. **Split from day one** — retrofitting the split after thousands of mixed trajectories is costly.
 
-```python
-def save_trajectory(trajectory: List[Dict], model: str, completed: bool):
-    """
-    Split trajectories by outcome — positive examples separate from negative.
-    Both files directly compatible with Axolotl/TRL/Unsloth finetuning pipelines.
-    """
-    filename = "trajectory_samples.jsonl" if completed else "failed_trajectories.jsonl"
-    entry = {
-        "conversations": trajectory,   # ShareGPT format: [{role, content}, ...]
-        "timestamp": utcnow_iso(),
-        "model": model,
-        "completed": completed,
-    }
-    with open(filename, "a") as f:
-        f.write(json.dumps(entry) + "\n")
-```
-
-- `trajectory_samples.jsonl` → positive examples (task completed) → supervised finetuning
-- `failed_trajectories.jsonl` → negative examples (task failed) → DPO/RLHF preference training
-- Split from day one — retrofitting the split after thousands of mixed trajectories is costly
+- `trajectory_samples.jsonl` → positive examples → supervised fine-tuning.
+- `failed_trajectories.jsonl` → negative examples → DPO / RLHF preference training.
 
 ### Training Data Hygiene: `ephemeral_system_prompt`
 
-When running batch trajectory collection (e.g., for benchmarks or bootstrapping), inject persona/environment context via `ephemeral_system_prompt` — a system prompt field that is **not saved to trajectories**:
-
-```python
-class AgentRunner:
-    def __init__(self, task, system_prompt, ephemeral_system_prompt=None):
-        self.system_prompt = system_prompt          # persisted to trajectory
-        self.ephemeral = ephemeral_system_prompt    # stripped before save
-```
-
-Without this, batch-generation context leaks into training data and teaches the model to expect personas it won't see in production. Rule: **only production-identical system prompts should appear in saved trajectories.**
+When running batch trajectory collection (benchmarks, bootstrapping), inject persona/environment context via an `ephemeral_system_prompt` field that is **not saved to trajectories**. Without this, batch-generation context leaks into training data and teaches the model to expect personas it won't see in production. **Rule**: only production-identical system prompts should appear in saved trajectories.
 
 ### Reasoning Chain Normalization
 
-Before saving reasoning-model trajectories, normalize reasoning tags:
-
-```python
-def convert_scratchpad_to_think(text: str) -> str:
-    """Normalize <REASONING_SCRATCHPAD>...</REASONING_SCRATCHPAD> → <think>...</think>
-    Required for DeepSeek-R1 / reasoning model finetuning pipelines."""
-    return text.replace("<REASONING_SCRATCHPAD>", "<think>").replace("</REASONING_SCRATCHPAD>", "</think>")
-
-def has_incomplete_scratchpad(text: str) -> bool:
-    """Guard: never save truncated reasoning chains to training data."""
-    return "<think>" in text and "</think>" not in text
-```
+Before saving reasoning-model trajectories, normalize reasoning tags: `<REASONING_SCRATCHPAD>…</REASONING_SCRATCHPAD>` → `<think>…</think>` (required for DeepSeek-R1 / reasoning model fine-tuning pipelines). **Guard**: never save truncated reasoning chains — if `<think>` is present but `</think>` is missing, discard.
 
 ### RL Training Toolset Pattern (Tinker-Atropos)
 
-The agent can manage its own training runs from inside the agent loop. The toolset exposes the full training lifecycle:
+The agent can manage its own training runs from inside the agent loop via tools: `rl_list_environments`, `rl_select_environment`, `rl_get_current_config`, `rl_edit_config`, `rl_start_training`, `rl_check_status`, `rl_stop_training`, `rl_get_results`, `rl_list_runs`, `rl_test_inference`. Enables the full closed loop: collect trajectories → analyze failures → start training run → check status → get results → test inference → deploy if improved.
 
-```python
-RL_TRAINING_TOOLS = [
-    "rl_list_environments",   # browse available training envs
-    "rl_select_environment",  # choose training config
-    "rl_get_current_config",  # inspect hyperparameters
-    "rl_edit_config",         # modify training config
-    "rl_start_training",      # launch training run
-    "rl_check_status",        # monitor progress
-    "rl_stop_training",       # abort run
-    "rl_get_results",         # retrieve metrics
-    "rl_list_runs",           # compare historical runs
-    "rl_test_inference",      # validate updated model
-]
-```
-
-This enables the full closed loop without human intervention:
-```
-Collect trajectories → analyze failures → start training run
-→ check_status → get_results → test_inference → deploy if improved
-```
-
-**When to implement**: L3b agents only. Requires the training infrastructure already in place. The toolset is worthless without it — don't build the tools before the backend.
+**When to implement**: L3b agents only. Requires training infrastructure already in place. The toolset is worthless without the backend.
 
 ### Automated Prompt Optimization (Behavioral Benchmark Pattern)
 
-Rather than hand-tuning per-model behavioral guidance, generate it from behavioral benchmarks:
-
-```python
-# Model-specific guidance constants generated by automated tests, NOT hand-written
-# Hermes: OPENAI_MODEL_EXECUTION_GUIDANCE, GOOGLE_MODEL_OPERATIONAL_GUIDANCE
-
-OPENAI_MODEL_EXECUTION_GUIDANCE = """
-<tool_persistence>Always call the tool you planned. Never stop and ask when you have enough information to proceed.</tool_persistence>
-<mandatory_tool_use>Every response MUST include a tool call. Descriptions alone are insufficient.</mandatory_tool_use>
-<act_dont_ask>Do not ask clarifying questions when task intent is clear. Execute and report.</act_dont_ask>
-"""  # generated by benchmark suite, committed to source
-
-# Generation process:
-# 1. Run behavioral benchmark suite against model family
-# 2. Identify systematic failure modes (e.g., GPT tends to describe actions instead of taking them)
-# 3. Generate corrective instructions targeting each failure mode
-# 4. Benchmark again to verify correction
-# 5. Commit generated constants to source
-```
+Rather than hand-tuning per-model behavioral guidance, generate it from behavioral benchmarks. Process: (1) run behavioral benchmark suite against model family; (2) identify systematic failure modes (e.g. "GPT tends to describe actions instead of taking them"); (3) generate corrective instructions targeting each failure mode; (4) benchmark again to verify correction; (5) commit generated constants (e.g. `OPENAI_MODEL_EXECUTION_GUIDANCE`, `GOOGLE_MODEL_OPERATIONAL_GUIDANCE`) to source with verification date.
 
 This is DSPy's "prompt as learnable parameter" in production — the constants are code artifacts produced by an optimization process, not human intuition.
 
@@ -398,153 +163,159 @@ Benchmark validates skill improves future performance
 Skill committed to skills library
 ```
 
-The loop is: **experience → analysis → skill crystallization → faster future execution.**
-Without Hindsight, successful trajectories accumulate but don't compound. With it, every success raises the baseline.
+The loop is: **experience → analysis → skill crystallization → faster future execution.** Without Hindsight, successful trajectories accumulate but don't compound. With it, every success raises the baseline.
 
 ### Automated Hashimoto Loop (L3b Target)
 
-The manual Hashimoto Loop (Phase 6) has a fully automated variant:
-
-```
-Agent attempts task
-    ↓
-Trajectory saved (completed=False if task fails)
-    ↓
-Hindsight diagnoses: "What capability or constraint was missing?"
-    ↓
-skill_manage() patches relevant skill (auto-apply with security scan)
-    ↓
-Benchmark verifies recurrence prevented
-    ↓
-Repeat
-```
-
-This closes the loop without human involvement. Prerequisites: trajectory infrastructure, skills security scan, behavioral benchmark. Build in this order — don't attempt automated Hashimoto without all three.
-
----
+The manual Hashimoto Loop (Phase 6) has a fully automated variant: agent attempts task → trajectory saved (`completed=False` if failed) → Hindsight diagnoses "what capability/constraint was missing?" → `skill_manage()` patches relevant skill (auto-apply with security scan) → benchmark verifies recurrence prevented → repeat. Closes the loop without human involvement. **Prerequisites**: trajectory infrastructure, skills security scan, behavioral benchmark. Build in this order — don't attempt automated Hashimoto without all three.
 
 ## Known Limitations (Uncrossable Boundaries)
 
-1. **Self-evolution cannot evolve its own evolution mechanism** (Gödel limitation practical version) — L3b modifies safety framework = bypassing safety checks = disaster. Solution: Circuit Breaker, test gate, Blast Radius itself listed in FORBIDDEN_ZONES, forbidden from auto-modification.
-
+1. **Self-evolution cannot evolve its own evolution mechanism** (Gödel limitation, practical version) — L3b modifying the safety framework = bypassing safety checks = disaster. Solution: Circuit Breaker, test gate, Blast Radius itself listed in `FORBIDDEN_ZONES`; forbidden from auto-modification.
 2. **LLM-generated fix plan credibility has an upper limit** — Even if tests pass, LLM-generated code may have hidden semantic errors (tests don't cover). Auto-apply forbidden on core paths (authentication, security, data integrity).
-
-3. **Metrics Goodhart's Law** — Optimizing observable metrics causes agent to find "workarounds that game metrics without solving real problems" (e.g., deleting error logs to lower error_rate). Mitigation: Multi-dimensional metrics + human regular spot-check of Evolution Log.
-
+3. **Metrics Goodhart's Law** — Optimizing observable metrics causes agent to find "workarounds that game metrics without solving real problems" (e.g. deleting error logs to lower `error_rate`). Mitigation: multi-dimensional metrics + human regular spot-check of Evolution Log.
 4. **Bitter Lesson applies** — As LLM capabilities improve, L2/L3a manual rule systems may be replaced by "just give a better base model." Self-evolution complexity should decrease as model capability increases, not solidify.
 
----
+## Delayed-Feedback Evolution: A Different Safety Model
 
-## Minimal Runnable Self-Evolution Implementation (Python / Any Language Generic)
+The L0–L3b framework, Circuit Breaker, and test-gate safety mechanisms all assume **fast feedback loops** — you can verify within seconds whether a modification worked (tests pass/fail, benchmark runs, syntax check). This assumption holds for coding agents but breaks for agents where true outcome takes days, weeks, or longer.
 
-Minimum implementation from L1 → L2, suitable for Proof of Concept:
+### The Fast-Feedback Assumption and Where It Breaks
 
-```python
-import json, subprocess, datetime
-from pathlib import Path
+- **Fast feedback (default)** — modification → immediate verification → keep/discard within seconds. Examples: coding agents (tests), translation agents (human rating), classification agents.
+- **Delayed feedback (needs different safety model)** — modification → action taken → outcome observed after days/weeks. Any agent whose quality metric requires real-world downstream consequences over extended time.
 
-class MinimalSelfEvolution:
-    def __init__(self, config_path: str, test_cmd: str):
-        self.config_path = Path(config_path)
-        self.test_cmd = test_cmd
-        self.evo_log = Path("evolution_log.jsonl")
-        self.circuit_failures = 0
-        self.FAILURE_THRESHOLD = 3
+### Why Standard Safety Mechanisms Fail
 
-    def diagnose(self) -> dict | None:
-        """Run diagnosis, return discovered problem (or None)"""
-        # Simple example: check thresholds in config
-        config = json.loads(self.config_path.read_text())
-        metrics = self._get_current_metrics()
-        if metrics["error_rate"] > 0.05:
-            return {"issue": "high_error_rate", "current": metrics["error_rate"]}
-        return None
+1. **Circuit Breaker needs immediate failure signal** — assumes you know a modification failed quickly. In delayed-feedback scenarios, by the time you detect failure, many more decisions have been made under the bad configuration.
+2. **Test gates don't exist** — there's no unit test for "this decision was correct in hindsight."
+3. **Benchmark-based evaluation is degenerate** — backtests or simulations don't faithfully represent future outcomes (past data can't test decisions about future states).
+4. **Goodhart's Law hits harder** — without ground-truth feedback, any proxy metric gets gamed.
 
-    def generate_patch(self, diagnosis: dict) -> dict | None:
-        """Generate fix plan based on diagnosis (LLM can be plugged in here)"""
-        if diagnosis["issue"] == "high_error_rate":
-            config = json.loads(self.config_path.read_text())
-            new_val = config.get("max_retries", 3) + 1
-            return {"key": "max_retries", "old": config.get("max_retries", 3), "new": new_val}
-        return None
+### The Delayed-Feedback Safety Pattern
 
-    def apply_and_verify(self, patch: dict) -> bool:
-        if self.circuit_failures >= self.FAILURE_THRESHOLD:
-            return False  # Circuit breaker open
+When your agent operates in a delayed-feedback environment, apply these additional constraints beyond standard L2/L3b:
 
-        # Backup
-        backup = self.config_path.read_text()
+1. **Minimum observation window** — before any parameter update, require N complete decision→outcome cycles of real data. Never update from theoretical backtests alone. N must be large enough that noise averages out — "3 samples" is always too few.
+2. **Shadow mode first** — new parameters run in "shadow mode": they compute what they would do, but the live agent still uses old parameters. Compare shadow decisions to live decisions over the full observation window before promoting shadow to live.
+3. **Reversible-only modifications** — only allow self-evolution on parameters whose effects can be undone by reverting. Never self-evolve on parameters that trigger irreversible actions (capital allocation, resource commitment, external communications).
+4. **Outcome attribution gate** — before accepting a modification's benefit, verify the improvement correlates with the modification, not with external conditions changing. Requires control groups or A/B tests — single-agent before/after is insufficient.
+5. **Human-in-the-loop escalation** — any modification crossing a "significant impact" threshold (defined per-domain) requires human approval before promotion from shadow to live, regardless of metrics.
 
-        # Apply modification
-        config = json.loads(backup)
-        config[patch["key"]] = patch["new"]
-        self.config_path.write_text(json.dumps(config, indent=2))
+### When to Apply This Pattern
 
-        # Run tests
-        result = subprocess.run(self.test_cmd.split(), capture_output=True)
+Apply delayed-feedback safety if **any** of these are true:
+- The agent's quality metric requires observing future real-world outcomes (not simulations).
+- The action-to-outcome lag exceeds modification frequency (you'd update parameters faster than you can evaluate the previous update).
+- Actions have compounding effects — today's action changes what information tomorrow's decision sees.
+- The environment is non-stationary — historical performance doesn't predict future performance.
 
-        if result.returncode != 0:
-            # Rollback
-            self.config_path.write_text(backup)
-            self.circuit_failures += 1
-            self._log(patch, "DISCARD", result.stderr.decode())
-            return False
+### Relationship to Consequence Severity (Phase 0)
 
-        self.circuit_failures = 0
-        self._log(patch, "KEEP", "tests passed")
-        return True
+Delayed-feedback scenarios almost always overlap with HIGH consequence severity (see agentforge-spec six-layer feasibility check). The two safety layers compose: consequence severity forces human-in-the-loop at **decision** time; delayed-feedback safety forces it at **modification** time. Both gates must be passed.
 
-    def _log(self, patch, decision, notes):
-        entry = {
-            "timestamp": datetime.datetime.utcnow().isoformat(),
-            "patch": patch, "decision": decision, "notes": notes
-        }
-        with self.evo_log.open("a") as f:
-            f.write(json.dumps(entry) + "\n")
-```
+### Empirical Evidence: Autonomy Drift Is Real
 
----
+> Source: Adaline Labs, "Multi-Agent Systems Need a Product Control Plane" — https://labs.adaline.ai/p/multi-agent-systems-product-control-plane (verified 2026-04-12).
+
+Adaline tracked Anthropic API usage between **October 2025 and January 2026** and documented measurable autonomy drift — agents running longer and with less human oversight, **not because developers consciously raised the autonomy slider, but because the system drifted there on its own**:
+
+- 99.9th-percentile session length grew from **10 minutes → 40 minutes** (4× in 3 months).
+- Human interventions dropped from **5.4 → 3.3 per session** (−39%).
+
+This is exactly the failure mode the Delayed-Feedback Safety Pattern is designed to catch: even without any explicit "evolution" step, the **system state** evolves beyond the original design envelope. The observation-window requirement, attribution gate, and human-escalation threshold exist to make such drift **observable and reversible** before it compounds.
+
+**Actionable rule**: track session length p99.9 and intervention rate as **first-class self-evolution metrics**. If either moves > 50% without an intentional rollout, treat it as an unplanned evolution event and trigger the attribution gate — even if the agent's apparent quality metric looks fine.
+
+## Minimal Runnable Self-Evolution Implementation
+
+Minimum L1 → L2 implementation suitable for PoC — `MinimalSelfEvolution(config_path, test_cmd)` with:
+
+- **`diagnose()`** — reads config, fetches current metrics, returns `{issue, current}` if an anomaly threshold is crossed (e.g. `error_rate > 0.05`), else `None`.
+- **`generate_patch(diagnosis)`** — LLM (or rule) generates a plan. Example: for `high_error_rate`, bump `max_retries` by 1 and return `{key, old, new}`.
+- **`apply_and_verify(patch)`** — if circuit breaker is open, reject. Otherwise: back up config → apply patch → run test suite → on failure, rollback + increment circuit-breaker failure count + log `DISCARD`; on success, reset circuit breaker + log `KEEP`.
+- **`_log(patch, decision, notes)`** — append JSONL entry `{timestamp, patch, decision, notes}` to `evolution_log.jsonl`.
+
+This is intentionally 60 lines of code — it demonstrates the pattern without requiring LLM integration, and can be extended progressively toward L3a/L3b.
 
 ## Current Status (April 2026)
 
-1. **L1-L2 have production-validated cases** — Multiple self-evolving Platform systems have completed 10+ diagnosis cycles in production, true positive rate ~60-65%, implemented limited automatic merge. L1/L2 maturity is sufficient for production Harness design.
-2. **L3b still in research/experimental stage** — Fully autonomous code generation + automatic merge has very few real-world agent cases, mainly because LLM code generation reliability cannot yet support zero supervision.
-3. **DSPy automatic prompt optimization moving toward production** — The idea of treating Prompt as a learnable parameter has multiple open-source implementations, suitable for starting L3a self-evolution from prompt optimization.
-4. **Self-evolution safety framework gradually standardizing** — Circuit Breaker + Blast Radius + test gate combination independently discovered by multiple teams as the minimum safety set, trending toward becoming a standard pattern.
+1. **L1–L2 have production-validated cases** — Multiple self-evolving Platform systems have completed 10+ diagnosis cycles in production; true positive rate ~60–65%; limited automatic merge implemented. L1/L2 maturity is sufficient for production Harness design.
+2. **L3b still in research/experimental stage** — Fully autonomous code generation + automatic merge has very few real-world cases, mainly because LLM code-generation reliability cannot yet support zero supervision.
+3. **DSPy automatic prompt optimization moving toward production** — "Prompt as a learnable parameter" has multiple open-source implementations; good entry point for L3a self-evolution via prompt optimization.
+4. **Self-evolution safety framework gradually standardizing** — Circuit Breaker + Blast Radius + test gate combination has been independently discovered by multiple teams as the minimum safety set; trending toward standard pattern.
+
+## Runtime Self-Evolution: Tool/Scaffold Hot-Swap Pattern [SWE]
+
+A distinct variant — the agent modifies its **own tool interface or scaffold within a single session**, then continues using the updated interface. Unlike L3b (cross-session skill modification), this operates within the execution boundary of one task.
+
+### How It Works (SWE-agent source pattern)
+
+SWE-agent's tool system is loaded at session start from YAML config, then compiled into tool schemas. **Key insight**: tools are data, not code — the agent can generate a new tool definition, write it to a temp file, and reload it mid-session without restarting.
+
+`DynamicToolSet.hot_swap_tool(tool_name, new_definition)`: (1) validate new definition (schema check only — no execution test); (2) replace the in-memory tool; (3) recompile schemas (injected into next LLM turn's system prompt); (4) append to session evolution log (not persisted across sessions). Each hot-swap carries a mandatory `evolution_reason` field.
+
+### Key Design Constraints
+
+| Constraint | Reason |
+|-----------|--------|
+| **In-session scope only** | Hot-swapped tools don't persist; each session starts from base scaffold |
+| **Schema validation required** | Malformed tool definitions cause silent failures in next LLM turn |
+| **`evolution_reason` field mandatory** | Auditability: why did the agent modify the tool? |
+| **No execution test** | Unlike L3b, no test gate — agent assumes its own judgment is valid for the current task |
+| **Rollback = session restart** | If hot-swap makes things worse, rollback requires aborting the session |
+
+### When This Pattern Is Appropriate
+
+Agent encounters tool-interface friction mid-task (output format doesn't match downstream, missing parameter needed for this task, tool description misleads LLM about capabilities):
+- **Task well-scoped (single session, clear success criteria)?** → runtime tool hot-swap is appropriate.
+- **Improvement general (will help all future sessions)?** → use L3b (Hermes) instead — trajectory → skill patch → benchmark → deploy. Runtime hot-swap wastes the learning; it only benefits the current session.
+
+### Critical Difference from L3b (Hermes)
+
+| Dimension | Runtime Hot-Swap [SWE] | L3b Automated Hashimoto [HR] |
+|-----------|----------------------|------------------------------|
+| Scope | Current session only | Persists across sessions |
+| Validation gate | None (agent self-judgment) | Behavioral benchmark required |
+| Tool modification | In-memory schema only | Writes to skill files on disk |
+| Safety | Low risk (session-scoped) | High risk (circuit breaker mandatory) |
+| Use case | Task-specific adaptation | Systematic capability improvement |
+
+**Anti-pattern**: using runtime hot-swap to avoid building proper L3b infrastructure — the improvements are lost every session. If the agent hot-swaps the same tool 3+ times across different sessions, that tool needs a permanent fix via L2/L3b.
 
 ## Known Pitfalls
 
-1. **L3b without Circuit Breaker** — Self-evolving agent enters fix failure loop, consecutive wrong modifications destroy system. Circuit Breaker is the minimum requirement for L3b — without it, cannot go live.
-2. **Enabling self-evolution with low test coverage** — Test gate has no value: modifications in areas not covered by tests cannot be verified. Self-evolution prerequisite: core path test coverage > 80%.
-3. **Evolution Log not designed** — When self-evolution-related bugs appear, cannot trace "which automatic modification introduced the problem". Evolution Log must be established starting from L2.
-4. **Ignoring Goodhart's Law** — Directly optimizing error_rate causes agent to delete logs, lower thresholds and other avoidance behaviors. Multi-dimensional metrics + human review is the only defense.
-5. **Self-evolution scope not bounded** — L3b without Blast Radius limit may modify authentication, security and other core code — once wrong, losses are huge. Start with config/ and memory/, manually set core code as forbidden zones.
+1. **L3b without Circuit Breaker** — Self-evolving agent enters a fix-failure loop; consecutive wrong modifications destroy the system. Circuit Breaker is the minimum requirement for L3b — without it, do not go live.
+2. **Enabling self-evolution with low test coverage** — Test gate has no value: modifications in areas not covered by tests cannot be verified. Prerequisite: core-path test coverage > 80%.
+3. **Evolution Log not designed** — When self-evolution-related bugs appear, you can't trace "which automatic modification introduced the problem." Establish Evolution Log starting from L2.
+4. **Ignoring Goodhart's Law** — Directly optimizing `error_rate` causes the agent to delete logs, lower thresholds, and other avoidance behaviors. Multi-dimensional metrics + human review is the only defense.
+5. **Self-evolution scope not bounded** — L3b without Blast Radius may modify authentication / security core code — once wrong, losses are huge. Start with `config/` and `memory/`; manually set core code as forbidden zones.
 
 ## Further Reading
 
 | Topic | Resource |
 |------|------|
-| Deep Zig implementation (VTable/IR/JIT + evolution engine) | `/selfevolving-agent-architecture` |
-| Prompt automatic optimization (DSPy methodology) | Search `DSPy Stanford` + `site:github.com/stanfordnlp/dspy` |
+| Deep Zig implementation (VTable / IR / JIT + evolution engine) | `/selfevolving-agent-architecture` |
+| Prompt automatic optimization (DSPy methodology) | Search `DSPy Stanford` + `github.com/stanfordnlp/dspy` |
 | Memory CRUD self-evolution (Letta mode) | `/agentforge-memory` |
 | Pipeline versioning (MemU mode) | `/agentforge-harness` |
 | Self-evolution Platform architecture | `/agentforge-multiagent` (Platform mode) |
-| Evolution alignment & safety (game theory perspective) | `/evolution-alignment` |
-| Computational resource economics (evolution under cost constraints) | `/computational-resource-economics` |
+| Evolution alignment & safety (game theory) | `/evolution-alignment` |
+| Computational resource economics | `/computational-resource-economics` |
 | Production trajectory infrastructure + RL toolset (Hermes source) | `借鉴/hermes-agent/agent/trajectory.py`, `tools/rl_training_tool.py` |
-| Behavioral benchmark → auto-generated guidance (Hermes source) | `借鉴/hermes-agent/agent/prompt_builder.py` (OPENAI/GOOGLE_MODEL_*_GUIDANCE) |
+| Behavioral benchmark → auto-generated guidance | `借鉴/hermes-agent/agent/prompt_builder.py` |
 
 ## Self-Evolution Checklist
 
-- [ ] Declared self-evolution target level in Phase 0 Spec (L0-L3b)
-- [ ] L1+: Has monitoring system + Evolution Log design
-- [ ] L2+: Has predefined "problem→fix" mapping, has Blast Radius limit
-- [ ] L3a+: Has LLM plan generation + human approval process
-- [ ] L3b+: Circuit Breaker implemented + test gate implemented + core code in FORBIDDEN_ZONES
-- [ ] Has rollback mechanism (git or config backup)
+- [ ] Declared self-evolution target level in Phase 0 Spec (L0–L3b)
+- [ ] L1+: monitoring system + Evolution Log design
+- [ ] L2+: predefined "problem → fix" mapping + Blast Radius limit
+- [ ] L3a+: LLM plan generation + human approval process
+- [ ] L3b+: Circuit Breaker + test gate + core code in `FORBIDDEN_ZONES`
+- [ ] Rollback mechanism (git or config backup)
 - [ ] Evolution Log structured and queryable
 - [ ] Avoiding Goodhart's Law (multi-dimensional metrics + human spot-check)
 
 ## Next Step
 
-After self-evolution capability ready → **`/agentforge-benchmark`** (Phase 11: Testing, Acceptance & Benchmarking)
+After self-evolution capability ready → **`/agentforge-benchmark`** (Phase 12: Testing, Acceptance & Benchmarking)

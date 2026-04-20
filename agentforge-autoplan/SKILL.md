@@ -1,6 +1,6 @@
 ---
 name: agentforge-autoplan
-description: AgentForge Phase 9 — full-pipeline orchestrator. Serial execution of Phase 0→8, auto-handling mechanical decisions, deferring only judgment calls to humans. Triggers when user says "build an Agent", "agentforge autoplan", "one-shot build", or "full pipeline". When the user provides repo code or an existing Agent, automatically switches to diagnosis mode and invokes agentforge-diagnose.
+description: AgentForge Phase 10 — full-pipeline orchestrator. Serial execution of Phase 0→9, auto-handling mechanical decisions, deferring only judgment calls to humans. Triggers when user says "build an Agent", "agentforge autoplan", "one-shot build", or "full pipeline". When the user provides repo code or an existing Agent, automatically switches to diagnosis mode and invokes agentforge-diagnose.
 triggers:
   - build an agent
   - agentforge autoplan
@@ -16,7 +16,7 @@ metadata:
   category: "agent-engineering"
 ---
 
-# AgentForge Phase 9: Full-Pipeline Orchestration
+# AgentForge Phase 10: Full-Pipeline Orchestration
 
 > Series entry: `/agentforge` | Covers Phase 0→8 in full
 > Reference: `/gstack-autoplan` (equivalent orchestrator for Web products)
@@ -385,8 +385,8 @@ When all Phases are complete, output the final report:
 | Phase 6: Harness Engineering | `/agentforge-harness` |
 | Phase 7: Multi-Agent Coordination | `/agentforge-multiagent` |
 | Phase 8: Packaging & Release | `/agentforge-ship` |
-| Phase 10: Self-Evolution | `/agentforge-evolution` |
-| Phase 11: Testing, Acceptance & Benchmarking | `/agentforge-benchmark` |
+| Phase 11: Self-Evolution | `/agentforge-evolution` |
+| Phase 12: Testing, Acceptance & Benchmarking | `/agentforge-benchmark` |
 | Cloud Deployment & Operations | `/cloud-deployment` |
 
 ## Orchestration Checklist

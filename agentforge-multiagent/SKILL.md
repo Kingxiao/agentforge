@@ -1,15 +1,15 @@
 ---
 name: agentforge-multiagent
-description: AgentForge Phase 7 — Multi-agent coordination. 4 sub-agent spawn modes + agent registry + communication protocols + anti-patterns. Triggered when the user says "multi-agent", "sub-agent", "agent coordination", or "multi-agent".
+description: AgentForge Phase 7 — Multi-agent coordination. 5 sub-agent spawn modes (sync/async/worktree/remote/adversarial-debate) + agent registry + communication protocols + anti-patterns. Triggered when the user says "multi-agent", "sub-agent", or "agent coordination".
 triggers:
   - multi-agent
   - sub-agent
   - agent coordination
-  - multi-agent
-  - agent coordination
+  - subagent spawn
+  - agent orchestration
 metadata:
-  version: "2.0.0"
-  last_updated: "2026-04-06"
+  version: "2.1.0"
+  last_updated: "2026-04-12"
   category: "agent-engineering"
 ---
 
@@ -27,6 +27,23 @@ metadata:
 
 ## First Decision: Do You Even Need Multi-Agent?
 
+### Hard Cost/Benefit Numbers (Anthropic Multi-Agent Research, 2025-06-13)
+
+> Source: Anthropic "How we built our multi-agent research system" — https://www.anthropic.com/engineering/multi-agent-research-system (verified 2026-04-12). These are **verbatim** production numbers, not estimates.
+
+| Metric | Value | Implication |
+|---|---|---|
+| **Single agent token cost** | "agents typically use about **4× more tokens** than chat interactions" | Even a plain agent is 4× a single chat call |
+| **Multi-agent token cost** | "multi-agent systems use about **15× more tokens** as chats" | ~4× above single agent; plan budget accordingly |
+| **Performance uplift** | "Claude Opus 4 lead + Sonnet 4 subagents outperformed single-agent Claude Opus 4 by **90.2%** on internal research eval" | Multi-agent is not a tax — it's a capability unlock for heavy parallelization |
+| **Variance decomposition** | On BrowseComp: "**token usage alone explains 80% of variance**"; token usage + tool calls + model choice explain **95%** of variance | Context engineering > model choice as the lever |
+
+**Cost/benefit rule**: "Multi-agent systems require tasks where the value of the task is high enough to pay for the increased performance." In plain words — **if you can't justify 15× token spend for substantial quality gain, don't go multi-agent**.
+
+**Best-fit domains (verbatim)**: "tasks that involve heavy parallelization, information that exceeds single context windows, and interfacing with numerous complex tools." Three clear "yes" signals. Missing all three → single agent is almost always the right answer.
+
+### Decision Tree
+
 ```
 Does your scenario need multi-agent?
 │
@@ -42,6 +59,12 @@ Does your scenario need multi-agent?
 └─ Need large-scale parallelization (10+ concurrent tasks)
    → Remote Agent or containerized
 ```
+
+### Documented Failure Mode: Runaway Delegation
+
+> Source: Adaline Labs, 2026-04-11 (https://labs.adaline.ai/p/multi-agent-systems-product-control-plane)
+
+**Anthropic's own research system** was documented to have "**spawned 50 subagents for simple queries**" and at times "scouring the web endlessly" without a delegation governance layer. This is the canonical failure mode: without explicit permission/handoff/visibility/recovery rules, a Lead agent will over-delegate and burn token budget in a runaway fan-out. **Treat 50-subagent episodes as a paging-severity incident**, not an amusing anecdote — at 15× token ratio, one such episode can exceed a month's budget for a single task.
 
 ## 4 Sub-Agent Modes [CC] — 3-Tier Isolation System
 
@@ -104,6 +127,63 @@ Main Agent → spawn(prompt, isolation="remote")
 
 **Applicable**: Large-scale parallelization, need different hardware environments
 **Constraint**: Network latency, high cost
+
+### Mode 5: Adversarial Debate
+
+```
+Main Agent → spawn(prompt_A, stance="advocate") + spawn(prompt_B, stance="challenger")
+              ↓                                      ↓
+        Agent A argues FOR                    Agent B argues AGAINST
+              ↓                                      ↓
+              └──────── Both results ────────────────┘
+                              ↓
+                   Synthesizer Agent combines → Final output
+```
+
+**Applicable**: Decisions where confirmation bias is the primary risk — the quality of the decision improves when opposing viewpoints are forced to engage
+
+**Examples across domains**:
+- Research: hypothesis agent vs counter-hypothesis agent → synthesis
+- Product design: user advocate vs engineering feasibility → balanced feature spec
+- Risk assessment: optimistic projection vs pessimistic projection → calibrated estimate
+- Content review: "publish" advocate vs "revise" advocate → editorial decision
+
+**Key design constraints**:
+- The advocate and challenger MUST receive the same input data — asymmetric information defeats the purpose
+- The synthesizer MUST NOT be either advocate — it's a separate agent with a distinct prompt ("weigh both arguments, identify which claims have stronger evidence")
+- Debate rounds: 1 round is usually sufficient. Multiple rounds risk agents entrenching rather than converging — cap at 2 rounds with explicit "what new evidence would change your position?" prompt in round 2
+
+**When NOT to use**: Tasks with objectively correct answers (code compilation, math). Debate adds latency and cost for zero quality gain when ground truth is mechanically verifiable.
+
+**Cost**: 3x a single agent call (advocate + challenger + synthesizer). Only justified when the cost of a wrong decision exceeds the cost of 3x inference.
+
+### Mode 5 Failure Modes (2025-2026 research)
+
+Recent empirical research has identified serious failure modes in multi-agent debate. Understand these before choosing Mode 5:
+
+| Failure mode | Description | Mitigation |
+|--------------|-------------|------------|
+| **Homogeneous bias amplification** | When advocate and challenger share the same base model, they share the same training biases. Debate amplifies rather than corrects these biases — the agents agree on wrong answers with higher confidence | Force heterogeneity: use different model providers or at least different model families for advocate vs challenger. A Claude-vs-Claude debate is weaker than Claude-vs-GPT debate |
+| **Persuasion > accuracy** | A single eloquent but incorrect agent can lower system accuracy by 10-40% (Nature Sci Rep 2026). Agents often fail to revise their stance when confronted with correct counter-evidence, swayed instead by confident delivery | Add a "change condition" to round 2 prompt: "What specific evidence, not rhetoric, would change your position?" Reject positions that claim no evidence could change them |
+| **Voting ≈ Debate** | ICLR 2025 research shows majority voting accounts for most performance gains attributed to Multi-Agent Debate. Simple N-way parallel sampling + vote may be cheaper and equally effective | Benchmark Mode 5 against simpler "N independent samples + majority vote" before committing. If voting performs within 5% of debate at 1/3 the cost, use voting |
+| **Error entrenchment over rounds** | Additional debate rounds don't always improve outcomes — they can cement initial errors through repetition. More rounds ≠ better decisions | Cap at 2 rounds maximum. Extended rounds risk groupthink around incorrect consensus |
+
+**Revised decision flow**:
+
+```
+Considering Mode 5 (Adversarial Debate)?
+    │
+    ├─ Do you have the budget for N-way parallel sampling + majority voting?
+    │  Yes → Benchmark voting FIRST. It's often 80% as good at 33% the cost
+    │
+    ├─ If voting is insufficient, can you use heterogeneous models?
+    │  No (only one provider available) → Mode 5 risks bias amplification — reconsider
+    │  Yes → Proceed with Mode 5 but:
+    │        - Use different model providers/families for advocate vs challenger
+    │        - Cap debate at 2 rounds
+    │        - Add evidence-based change conditions to round 2 prompts
+    │        - The synthesizer must be a third model, not either debater
+```
 
 ## Sub-Agent Tool Restrictions
 
@@ -244,6 +324,55 @@ Agent C → Review (read-only + diff tools)
 
 These role divisions are meaningless to LLMs. They just add unnecessary communication overhead.
 
+## Product Control Plane: The 4 Primitives (Adaline 2026)
+
+> Source: Adaline Labs "Multi-Agent Systems Need a Product Control Plane" (2026-04-11, https://labs.adaline.ai/p/multi-agent-systems-product-control-plane). Derived from production deployment data, not theory.
+
+Multi-agent systems **fail in production not because models aren't smart enough but because there's no governance layer above the models.** Adaline's empirical finding: "If your PRD does not define delegation boundaries and escalation conditions, it is not ready for a multi-agent workflow."
+
+Four essential primitives must exist **before** launching any multi-agent system:
+
+### 1. Permissions — What Each Agent Can Do
+
+- **Least-privilege defaults at the sub-agent level** — default deny, explicit grant.
+- **Semantic constraints, not just binary access** — e.g. "read-only access to specific rows" rather than "read access to DB".
+- **Dynamic permissions based on trust metrics** — agents that demonstrate reliability earn broader scope; those that drift lose it.
+
+### 2. Handoffs — Transfers of Work Between Agents
+
+- **Safety classifiers at both ends of every sub-agent handoff** — one on the sender's output, one on the receiver's accepted input. Handoff is the highest-risk boundary in a multi-agent system.
+- **Log handoffs with source/destination agents and context transferred** — enables incident replay.
+- **Treat incomplete context transfers as failure events** — if the handoff payload is missing fields the receiver needs, fail loud, don't silently degrade.
+
+### 3. Visibility — Understanding System Operations
+
+- **Traces at the agent-step level, not just the request level** — a single user query can spawn 10+ internal steps; per-request logs hide the interesting behavior.
+- **Step-level visibility for users** — users should see what the agent is doing at each stage of a multi-agent task, not just the final answer.
+- **Define user-visible stages explicitly** — which steps are surfaced, which are internal.
+
+### 4. Recovery — Handling Failures
+
+Every multi-agent system must implement **at least three explicit recovery options**:
+1. **Retry with modified parameters** — same tool call, different inputs after error analysis.
+2. **Fallback to simpler workflow** — degrade from multi-agent to single-agent or to a hardcoded workflow.
+3. **Escalation to human review** — exit the autonomous loop entirely when the first two options are exhausted.
+
+**Circuit breakers for runaway delegation chains** — agents delegating to sub-agents delegating further must have a hard stop (max depth, max fan-out, max total token budget), otherwise you get the "50 subagents for simple queries" failure mode.
+
+### Autonomy Drift: Measured in Production
+
+Adaline tracked Anthropic API usage from **October 2025 → January 2026**:
+- 99.9th-percentile session length grew from **10 minutes → 40 minutes** (4×).
+- Human interventions dropped from **5.4 → 3.3 per session**.
+
+**Interpretation**: agents are running longer and with less human oversight — autonomy drift is real and measurable. The delayed-feedback safety pattern in `/agentforge-evolution` should be applied here too: observation window + shadow mode + reversible-only modifications + outcome attribution gate + human escalation thresholds.
+
+### Industry Signals
+
+- **Linux Foundation A2A Protocol** — crossed "150 supporting organizations in its first year" — inter-agent governance is being standardized at the ecosystem level, not just per-product.
+- **Amazon finding** — "Quality issues in production often surface in ways that traditional monitoring misses" — you can't just bolt on APM; need agent-specific observability.
+- **Gartner prediction** — "40% of enterprise applications will include task-specific agents by year's end, up from less than 5% in 2025" — demand is real, but the production bar is rising fast.
+
 ## CI as Universal Verifier
 
 In multi-agent scenarios, CI is the only mechanism that can equally verify all agent outputs:
@@ -256,153 +385,18 @@ Human commits    → CI runs → Pass/Fail
 
 **CI doesn't care who wrote the code.** This is the most impartial quality gate in multi-agent systems.
 
-## OpenClaw Plugin SDK [OW]
+## Advanced Patterns (specialized — read on demand)
 
-OpenClaw's plugin system is essentially a Skill-as-Agent pattern — rather than spawning independent sub-processes, it loads domain skills to modify agent behavior.
+Four patterns below don't fit the standard decision flow and only apply when your build matches the trigger. All four are extracted to `references/advanced-patterns.md` to keep this skill focused:
 
-### 5 Plugin Types
+| Pattern | Read when you are building… |
+|---|---|
+| **OpenClaw Plugin SDK / Skill-as-Agent** | A plugin marketplace or runtime-loaded skill system (instead of process-spawned sub-agents) |
+| **Platform / OS Agent Architecture** | A platform that *manages* other agents' lifecycles (Agent OS), not one that *coordinates* them for a single task |
+| **OpenHands Microagent 3 Types** | An instruction-injection system with distinct global / repo / task-scoped rules |
+| **Streaming Pipeline Multi-Agent** | A real-time data pipeline (transcription → analysis → notification) where each agent runs continuously through shared queues |
 
-| Type | Responsibility | Examples |
-|------|---------------|---------|
-| Provider | LLM vendor adapter | OpenAI / Anthropic / Local |
-| Channel | Input/output channel | Slack / Web / CLI |
-| Tool | External capability binding | File system / API calls / Database |
-| Skill | Domain behavior injection | Code review / Translation / Data analysis |
-| Memory | Memory strategy | Vector storage / File memory / Redis |
-
-### Hot-Loading Mechanism
-
-- Uses **Jiti** for dynamic import, runtime load/unload plugins, no restart needed
-- Each Skill is essentially a sub-agent: has independent system prompt and tool access
-- Marketplace provides 100+ available Skills
-
-### Core Insight: Skill-as-Agent Pattern
-
-Traditional multi-agent approach spawns independent sub-agents to handle sub-tasks. OpenClaw's alternative: **load a domain skill to change the current agent's behavior**.
-
-Comparison:
-
-```
-Traditional:  Main Agent → spawn(sub-agent) → sub-agent executes independently → returns result
-OC:          Main Agent → load(Skill) → Main Agent gains new capability → executes directly
-```
-
-**Advantages**: Zero communication overhead, shared context, no result merging needed
-**Disadvantages**: No isolation, skill conflict risk, single point of failure
-
-Applicable when: Sub-tasks don't need file isolation, don't need parallelization, especially when deep context sharing is needed.
-
-## Platform / OS Agent Architecture Pattern
-
-> **"Use multi-agent to accomplish a task"** vs **"Build a platform that manages agents"** — these are two fundamentally different problems.
->
-> OpenClaw is a prime example of the latter — rather than coordinating agents to complete a single task, it **maintains the health and evolution of an agent ecosystem**.
-
-### When Are You Building a Platform
-
-- Your system needs to run/manage other agents (not call them, but manage their lifecycles)
-- You need to define "capability boundaries" for agents and dynamically expand them (Skill system, Plugin system)
-- You need to monitor the health and evolution trajectory of the entire agent ecosystem
-- Your agents can modify their own or other agents' behavioral rules
-
-### Platform Architecture: Core Three Layers
-
-```
-Layer 1: Gateway / Channel (entry aggregation)
-  ↓ Unified message format (CLI / Slack / Telegram / Web / API)
-Layer 2: Agent Runtime (lifecycle management)
-  ↓ Register, start, monitor, circuit break, destroy
-  ├── Capability Store (Skill/Plugin repository)
-  └── Evolution State (evolution history + circuit breaker)
-Layer 3: Infrastructure (persistence + observability)
-  ↓ Event stream / state storage / audit log
-```
-
-### Platform vs Coordinator Design Differences
-
-| Dimension | Coordinator (task-oriented) | Platform (ecosystem-oriented) |
-|-----------|---------------------------|------------------------------|
-| Focus | Complete current task | Maintain system health |
-| Agent relationship | Parent-child (task delegation) | Host-plugin (capability loading) |
-| Failure handling | Retry/degrade | Circuit breaker + isolation |
-| Evolution unit | Task prompt | Agent behavioral rules / capability library |
-| State granularity | Task state | Agent ecosystem state |
-| Representative implementation | Claude Code Agent SDK [CC] | OpenClaw [TS] (multi-channel Platform) |
-
-### Key Platform Design Decisions
-
-1. **Capability loading mechanism** — Static registration (compile-time determined) or dynamic loading (runtime JS module / .so)? Dynamic loading gains hot-update capability, at the cost of multiplied security audit complexity. Reference: OpenClaw uses Jiti dynamic import for hot loading
-2. **Agent behavioral conventions** — Prompt conventions or compile-time invariants? Prompts are flexible but mutable, compile-time invariants are enforced but stable. Production platforms often combine both: invariants as floor, prompts for personalization
-3. **Evolution safety boundary** — Platform must have Circuit Breaker (N consecutive failures → stop auto-evolution) and Blast Radius limit (auto-modifiable scope ≤ X%)
-4. **Observability is a first-class citizen** — Platform debugging isn't about watching a single task, but about the evolution trajectory of the agent ecosystem. Must design Evolution Log from day one (reason + result for every agent behavior change)
-
-> Principles and safety boundaries for self-evolving platforms → `/agentforge-evolution` (Phase 10)
-> Deep Zig implementation → `/selfevolving-agent-architecture`
-
-## OpenHands Microagent 3 Types [OH]
-
-OpenHands refines "instruction injection" into three Microagent types, layered by trigger mode and scope:
-
-| Type | Enum Value | Load Timing | Scope |
-|------|-----------|-------------|-------|
-| KNOWLEDGE | `value='knowledge'` | Always loaded | Global domain knowledge (language specs, API doc summaries) |
-| REPO | `value='repo'` | Auto-loaded at repo level | Repo-specific instructions (`.openhands/` or `.cursorrules` files) |
-| TASK | Dynamically triggered | When user message keywords match | On-demand injection of task-specific instructions |
-
-**Design insights**:
-
-- KNOWLEDGE is like the domain knowledge layer of system prompt — always in context, constant cost
-- REPO corresponds to CLAUDE.md / AGENTS.md repo-level harness — auto-detected, no explicit loading needed
-- TASK is the most interesting layer: **dynamically injects instructions based on keyword matching**, achieving "activate capability on demand" without spawning a new agent
-- Three-layer separation makes context budget controllable: KNOWLEDGE takes fixed budget, REPO varies by repo, TASK loads on demand
-
-## Streaming Pipeline Multi-Agent Pattern
-
-> **Applicable scenarios**: Real-time data processing pipelines (transcription→analysis→push), where each agent's output is the next agent's input, and latency constraints differ at each stage.
-
-Standard 4 modes (sync/async/worktree/remote) all assume "sub-task has a clear start and end." In streaming pipelines, each agent runs continuously, passing incremental data via shared queues — this is the 5th mode.
-
-### Three-Stage Streaming Pipeline Diagram
-
-```
-TranscriptionAgent            AnalysisAgent              NotificationAgent
-──────────────────            ─────────────              ─────────────────
-Audio stream → Real-time transcription    Receives new segment every 30s   Push when trigger conditions met
-    ↓                              ↓                              ↓
-Write to transcript_queue →→→   Read transcript_queue          Read notification_queue
-                            → LLM analysis                   → Write to notification queue
-                            → Write to notification_queue →→→ → POST to Slack/Notion
-```
-
-**Key design**: Queues are the only communication medium between three agents, no direct calls — decouples processing speed at each stage.
-
-### Implementation Points
-
-```python
-# Shared queue (asyncio.Queue intra-process, Redis Stream inter-process)
-transcript_queue = asyncio.Queue(maxsize=10)
-notification_queue = asyncio.Queue(maxsize=50)
-
-async def run_pipeline():
-    # Three agents run concurrently, non-blocking
-    await asyncio.gather(
-        TranscriptionAgent(output=transcript_queue).run(),
-        AnalysisAgent(input=transcript_queue, output=notification_queue).run(),
-        NotificationAgent(input=notification_queue).run(),
-    )
-```
-
-### Comparison with Standard Multi-Agent Modes
-
-| Dimension | Standard (sync/async spawn) | Streaming Pipeline |
-|-----------|---------------------------|-------------------|
-| Agent lifecycle | Start on demand, exit when task completes | Run continuously, no natural endpoint |
-| Inter-agent communication | Spawn return value / Git commit | Shared queue (async, non-blocking) |
-| Backpressure control | Not needed | Required (`maxsize` limits, prevent fast producer from overwhelming slow consumer) |
-| Failure handling | Parent agent retries sub-agent | Single agent crash doesn't affect queue contents already in flight |
-| Cost | Per-task billing | Continuous consumption (LLM billed per batch) |
-
-**Backpressure is the key**: `maxsize` controls queue capacity, preventing TranscriptionAgent from writing at 10 items/sec while AnalysisAgent processes at 1 item/30s, which would cause memory explosion. Production environments use Redis Stream instead of `asyncio.Queue`, with persistence and consumer group functionality.
+If none of these match your system, the four spawn modes + Control Plane 4 primitives above cover your case.
 
 ## Current State (April 2026)
 
@@ -461,5 +455,5 @@ async def run_pipeline():
 ## Next Steps
 
 Multi-agent design complete → **`/agentforge-ship`** (Phase 8: Release & Deployment)
-Building Platform type → **`/agentforge-evolution`** (Phase 10: Self-Evolution)
+Building Platform type → **`/agentforge-evolution`** (Phase 11: Self-Evolution)
 Need deep Zig implementation → **`/selfevolving-agent-architecture`**
