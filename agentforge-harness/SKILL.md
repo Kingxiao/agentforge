@@ -10,9 +10,12 @@ triggers:
   - agent failure
   - hashimoto loop
 metadata:
-  version: "2.1.0"
-  last_updated: "2026-04-12"
+  version: "2.2.0"
+  last_updated: "2026-05-14"
   category: "agent-engineering"
+origin: self
+authored_by: zichuan
+confirmed_at: "2026-05-14"
 ---
 
 > Previous: `/agentforge-security` | Next: `/agentforge-multiagent` | Series entry: `/agentforge`
@@ -332,6 +335,43 @@ Hindsight runs **after** the task in a separate context — prevents the agent f
 **Don't build it when**: each task is unique (trajectories don't generalize); no reliable success/failure signal (can't split trajectories meaningfully); no validation benchmark (autonomous updates without validation are net negative).
 
 The constraint harness is always needed. The learning harness is only needed when the agent will run enough tasks that accumulated trajectory data exceeds what a human can review.
+
+## Mandatory Self-Enforcement Checkpoints
+
+> Origin: Aindex weekly retro 2026-04-21~04-27 — 57/88 user messages flagged 4 categories of agent violations (16 unverified fixes, 26 hardcoded business enums, 5 off-topic answers, 9 shallow root-cause). User's strong-frustration baseline broken 2026-04-21. Memory-only rules had been in place 4 months without behavioral shift → soft rules confirmed insufficient. The four CHECKPOINT below are the agent-side soft layer paired with hook-layer hard enforcement (verification-summary-guard, config-drift-guard) per dual-layer C plan (approved 2026-05-14).
+
+### CHECKPOINT 1 — Before claiming a fix
+All of (a)+(b)+(c) required:
+- (a) A Bash tool call has occurred in the current transcript window
+- (b) Its `stdout` contains at least one literal marker: `PASS` / `FAIL` / `test passed` / `test failed` / `✓` / `✗` / `tests passed` / `ok N`
+- (c) ≥2 lines of that stdout are quoted in the response's verification block
+
+Until all three are satisfied, the phrases `已修复` / `修好了` / `搞定了` / `fix done` / `修复完成` are prohibited. Hook `verification-summary-guard.sh` enforces (a)+(b) mechanically as of 2026-05-14.
+
+### CHECKPOINT 2 — Before stating a root cause
+Evidence trio (a)+(b)+(c), all three required:
+- (a) Read of target project config (`.config/`, `config.toml`, `.env`, `pyproject.toml`, `Cargo.toml`)
+- (b) WebSearch on the exact error string / symptom signature
+- (c) Grep of reference codebase (`~/.openclaw/借鉴/openhands/`, `openclaw/`, or comparable prior art) — at least one citation in `path/to/file:NN` form
+
+Without all three, conclusions must be labelled `hypothesis`, not `root cause`. Canonical rule: `feedback_search_strategy.md:70-83`. This checkpoint is its enforcement view (no dedicated hook yet — soft layer only).
+
+### CHECKPOINT 3 — Before claiming "hardcoding cleaned"
+Grep each touched file for CJK-rich list constants (`≥5` strings containing 汉字) — paste the grep command and its empty-result confirmation. The hook `config-drift-guard.sh` mirrors this check on write; this checkpoint forces author-side parity so the hook never has to fire as the first detection.
+
+### CHECKPOINT 4 — Before answering "what is X" / "which X" / "specifically what"
+Read or Grep the referenced source and quote actual lines. Abstract paraphrases ("there's logic that handles X") are prohibited for factual queries. Citation format: `path/to/file:NN-MM` + fenced quoted block. Source: `feedback_hybrid_execution.md` scenario 3.
+
+### Enforcement Map
+
+| Checkpoint | Soft layer (this skill) | Hard layer (hook) |
+|---|---|---|
+| 1 — fix claim | this section | `verification-summary-guard.sh` (Stop) |
+| 2 — root cause | this section | none — soft only |
+| 3 — hardcoding cleaned | this section | `config-drift-guard.sh` (PreToolUse Write/Edit) |
+| 4 — "what / which" query | this section | none — soft only |
+
+Soft-only checkpoints (2 + 4) rely on agent compliance; promote to hook layer if weekly retro detects sustained violations.
 
 ## Anti-Patterns to Avoid
 
