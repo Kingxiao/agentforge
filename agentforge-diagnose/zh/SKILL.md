@@ -1,6 +1,10 @@
 ---
 name: agentforge-diagnose
-description: Systematically diagnose and optimize analysis for existing agents. Supports four input modes: repository code static audit, online agent动静结合, pure symptom hypothesis diagnosis, Live Testing (start agent + run standardized probes + collect runtime metrics). Output 9-dimension scoring + prioritized fix plan.
+description: >
+  Systematically diagnose and optimize analysis for existing agents. Supports
+  repository code static audit, online agent static plus dynamic diagnosis,
+  symptom hypothesis diagnosis, and live testing. Outputs 9-dimension scoring
+  and a prioritized fix plan.
 series: agentforge
 phase: diagnose
 version: 2.0
