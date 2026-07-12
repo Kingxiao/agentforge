@@ -77,7 +77,10 @@ Every subsequent phase (architecture, tools, context, memory, …) is a **downst
 
 ## Series Navigation
 
-Route to the correct skill based on the user's current phase:
+Route to at most one phase skill based on the user's current question. Do not
+preload the series, chain phases, or force a workshop when the host can answer
+the scoped question directly. Phase skills are explicit/router-only and never
+expand authorization for file, network, sub-agent, release, or deployment work.
 
 ### Phase 0 → Requirements Definition
 "What Agent am I building? For whom? What problem does it solve?"
@@ -116,7 +119,7 @@ Route to the correct skill based on the user's current phase:
 ### Phase 7 → Multi-Agent Coordination
 "How to spawn Sub-agents? Communication protocol? Git collaboration?"
 → **`/agentforge-multiagent`**
-→ For orchestrating existing Agents: `/dev-orchestrator`
+→ For orchestrating existing agents, use the host's native sub-agent and worktree controls.
 → For deep theory: `/multiagent-topology`, `/stigmergy-coordination`, `/collective-intelligence-design`
 
 ### Phase 8 → Packaging & Release
@@ -133,7 +136,7 @@ Route to the correct skill based on the user's current phase:
 → Covers: Brain/Hands/Session decoupling, lazy provisioning, credential isolation, observability, scaling
 
 ### Phase 10 → Full-Process Orchestration
-"One-button Phase 0→9, automatically handles mechanical decisions"
+"Run the complete AgentForge Phase 0→9 pipeline" (explicit opt-in only)
 → **`/agentforge-autoplan`**
 
 ### Phase 11 → Self-Evolution Core
@@ -149,7 +152,7 @@ Route to the correct skill based on the user's current phase:
 "Has an existing Agent, wants to know where problems are / why performance is poor / how to improve"
 → **`/agentforge-diagnose`**
 → Supports four modes: Mode A (static code audit) / Mode B (online Agent + symptoms) / Mode C (symptoms-only inference) / Mode D (runtime probe testing)
-→ Auto-routing: `/agentforge-autoplan` also routes here when detecting "existing Agent" signals
+→ Route here only when the user explicitly requests AgentForge diagnosis.
 
 ### Deep Self-Evolution
 More systematic self-evolution methodology → **`/selfevolving-agent-architecture`** (standalone series, 20 skills)
@@ -185,7 +188,9 @@ More systematic self-evolution methodology → **`/selfevolving-agent-architectu
 ## How to Use
 
 ### When the user knows exactly what they want to do
-Directly route to the corresponding Phase skill.
+Answer directly unless the user named AgentForge or the phase skill provides a
+specific decision artifact that materially improves the task. If so, load only
+the corresponding phase skill.
 
 ### When the user says "I want to build an Agent" but isn't sure where to start
 Ask questions in this order:
@@ -195,7 +200,8 @@ Ask questions in this order:
 3. **Technical constraints**: "Any language preference? Existing codebase?"
 4. **Security requirements**: "Can the Agent modify files? Execute commands? Does it need a sandbox?"
 
-Route to Phase 1 (architecture selection) based on answers.
+Use the smallest sufficient response. Route to Phase 1 only if an architecture
+decision remains and the AgentForge workflow is actually desired.
 
 ### When the user encounters a specific problem during the build process
 Identify which Phase the problem belongs to and route to the corresponding skill.
@@ -218,10 +224,10 @@ Identify which Phase the problem belongs to and route to the corresponding skill
 
 ## Known Pitfalls
 
-1. **Premature selection** — Skipping Phase 0 (requirements definition) and jumping directly to Phase 1 (architecture selection), leading to unsuitable paradigm choices. Solution: Always start with `/agentforge-spec`, even if it feels "already clear"
+1. **Premature selection** — Choosing architecture before key constraints are known. Ask only the missing questions that change the decision; do not force Phase 0 when the context is already sufficient.
 2. **Tool count inflation** — Installing too many tools on the Agent actually reduces performance. Vercel improved after deleting 80% of their tools. Solution: Follow `/agentforge-tools` "less is more" principle
-3. **Neglecting Harness** — Spending 90% of effort tuning prompts and 0% building constraint systems makes the Agent unreliable. Solution: Phase 6 (Harness) is a required, non-skippable phase
-4. **Cross-phase leakage** — Starting to write code during architecture design, resulting in rework. Solution: Strictly follow Phase sequence. Each Phase has a clear output checklist
+3. **Neglecting Harness** — Underinvesting in verification and constraints can make an Agent unreliable. Apply only the harness work justified by observed failure modes; it is not automatically a mandatory phase.
+4. **Process inflation** — Running every phase for a small, well-scoped Agent wastes context and delays feedback. Skip phases with no decision to make and validate early with code or tests when appropriate.
 5. **Closed-source illusion** — Designing based on Cursor/Devin's marketing because they're closed-source. Solution: This series is based only on verifiable open-source code. Closed-source Agents are only annotated for behavioral observation †
 
 ## References

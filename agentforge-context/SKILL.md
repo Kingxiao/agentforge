@@ -1,6 +1,7 @@
 ---
 name: agentforge-context
-description: Agent Context Engineering Guide. Layered system prompts + Prompt Cache + Auto-compact + Progressive Disclosure + Repo Map. Triggered when user says "Agent context", "context engineering", "prompt cache", "auto compact".
+disable-model-invocation: true
+description: Internal AgentForge Phase 3 context guide. Load only when explicitly named or selected by the agentforge router; do not auto-trigger for ordinary context, prompt, cache, or compaction questions.
 triggers:
   - agent context
   - context engineering

@@ -1,6 +1,7 @@
 ---
 name: agentforge-security
-description: AgentForge Phase 5 - Security/Sandbox/Permission Design. 6-layer security model + Starlark policy engine + approval flows + secondary LLM risk assessment. Triggered when user says "Agent security", "Agent sandbox", "Agent permissions", or "sandbox".
+disable-model-invocation: true
+description: Internal AgentForge Phase 5 security guide. Load only when explicitly named or selected by the agentforge router; ordinary security, sandbox, and permission work uses the host's current policy and tools.
 triggers:
   - Agent security
   - Agent sandbox
@@ -635,7 +636,7 @@ OpenHands's pluggable security analysis interface performs semantic-level securi
 
 | Mode | Behavior | Use Case |
 |------|------|---------|
-| Automatic | Auto-approve everything | Trusted environment / CI |
+| Pre-authorized | Auto-run only a deterministic, human-approved allowlist | Isolated CI/test sandbox |
 | Policy-based | Policy engine decides | Daily development |
 | Always-ask | Ask user every time | Beginners / sensitive operations |
 
@@ -651,11 +652,12 @@ Secondary LLM assessment (risk semantic judgment):
   - Does it have potential for destruction?
   - Does it touch security boundaries?
     ↓
-├── Safe → execute automatically
+├── Low risk → continue through deterministic policy / existing authorization
 └── Suspicious → prompt user for confirmation
 ```
 
-**Advantage**: Policy engine handles deterministic rules; LLM handles fuzzy intent matching — the two are complementary.
+**Boundary**: the secondary LLM may escalate risk but must not grant new
+authority. Policy and existing user authorization remain decisive.
 
 → Full approval flow reference: `references/approval-flow-patterns.md`
 
@@ -666,9 +668,11 @@ Secondary LLM assessment (risk semantic judgment):
 | default | Ask every time | New users / cautious users |
 | acceptEdits | Auto-allow edits within CWD | Daily development |
 | auto | AI Classifier decides | Power users |
-| bypassPermissions | Near fully automatic | CI / testing |
+| bypassPermissions | No interactive boundary; never Agent-selected | Only a human-configured, isolated, credential-minimal test sandbox |
 
-**Iron rule**: Permission system must be designed with tiers from Day 1. Don't build "always ask" first and then bolt on "auto mode" later.
+**Iron rule**: safer defaults and explicit authorization come first. Higher
+autonomy must narrow scope through isolation and deterministic allowlists; an
+Agent must never choose a bypass mode to avoid an approval prompt.
 
 ---
 

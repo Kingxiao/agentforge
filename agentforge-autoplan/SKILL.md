@@ -1,15 +1,11 @@
 ---
 name: agentforge-autoplan
-description: AgentForge Phase 10 — full-pipeline orchestrator. Serial execution of Phase 0→9, auto-handling mechanical decisions, deferring only judgment calls to humans. Triggers when user says "build an Agent", "agentforge autoplan", "one-shot build", or "full pipeline". When the user provides repo code or an existing Agent, automatically switches to diagnosis mode and invokes agentforge-diagnose.
+disable-model-invocation: true
+description: Internal AgentForge full-pipeline orchestrator. Load only when the user explicitly names agentforge-autoplan or requests the complete AgentForge pipeline; never auto-trigger, auto-chain phases, or switch modes from a generic Agent request.
 triggers:
-  - build an agent
   - agentforge autoplan
-  - one-shot build
-  - agent full pipeline
-  - agent autoplan
-  - diagnose agent
-  - audit agent code
-  - review this agent
+  - run the complete AgentForge pipeline
+  - one-shot AgentForge pipeline
 metadata:
   version: "2.1.0"
   last_updated: "2026-04-08"
@@ -19,37 +15,20 @@ metadata:
 # AgentForge Phase 10: Full-Pipeline Orchestration
 
 > Series entry: `/agentforge` | Covers Phase 0→8 in full
-> Reference: `/gstack-autoplan` (equivalent orchestrator for Web products)
+> This pipeline is opt-in; ordinary Agent work should not enter it automatically.
 
-## Mode Detection (Orchestrator Entry Point)
+## Explicit mode selection (orchestrator entry point)
 
-**The first step when the orchestrator starts is to determine which mode applies**, then route to the corresponding flow.
+Do not infer a mode merely because a repository, code file, or generic Agent
+request is present. This skill runs only after explicit opt-in:
 
-```
-User input
-    ↓
-Detect keywords / context
-    ↓
-┌─────────────────────────────────────────────────────┐
-│ Any of these signals → Diagnosis mode (→ /agentforge-diagnose) │
-│  • Repo path / code files provided                  │
-│  • "existing Agent" / "existing code" / "help me review" │
-│  • "diagnose" / "audit" / "what's wrong" / "why isn't it working" │
-│  • "optimize" + no "new" / "build" intent          │
-├─────────────────────────────────────────────────────┤
-│ These signals → Build mode (continue this skill's pipeline)    │
-│  • "build" / "make one" / "new" / "from scratch"   │
-│  • Agent idea description provided (but no existing code)       │
-│  • "autoplan" with no attached code context        │
-└─────────────────────────────────────────────────────┘
-    ↓
-When uncertain: ask directly "Are you building a new Agent or diagnosing an existing one?"
-```
+- `agentforge-autoplan` or “run the complete AgentForge pipeline” → build mode.
+- “run AgentForge diagnosis” or an explicit `/agentforge-diagnose` request →
+  diagnosis mode.
 
-**When diagnosis mode activates**:
-1. Switch to `/agentforge-diagnose` and execute according to its protocol
-2. After diagnosis completes, if user wants fixes, return to the corresponding Phase in this skill to execute fixes
-3. This skill's "build pipeline" does NOT run in diagnosis mode
+If both are requested, ask which should run first. Diagnosis completion does not
+authorize fixes or a return to the build pipeline; those remain separate user
+requests.
 
 ---
 
@@ -351,11 +330,9 @@ When all Phases are complete, output the final report:
 
 | Orchestrator | Domain | Common Ground |
 |--------------|--------|--------------|
-| `/gstack-autoplan` | Web product full pipeline | 6 decision principles, decision classification, completion protocol |
-| `/skill-orchestrator` | Consulting skill chains | Serial orchestration, progress tracking |
-| `/dev-orchestrator` | Multi-Agent development | Sub-agent coordination, Git workflow |
+| Host-native sub-agents | Multi-agent development | Sub-agent coordination, isolation, and worktree workflow |
 
-`agentforge-autoplan` focuses on **Agent construction process**, not deployment/operations (use `/cloud-deployment`) or business processes (use `/skill-orchestrator`).
+`agentforge-autoplan` focuses on the **agent construction process**, not deployment/operations (use `/cloud-deployment`) or generic business-process orchestration.
 
 ## Current State (April 2026)
 

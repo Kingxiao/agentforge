@@ -1,6 +1,7 @@
 ---
 name: agentforge-spec
-description: AgentForge Phase 0 - Agent requirements definition and feasibility judgment. Answer "should you build an Agent" and "what type of Agent to build" before writing any code. Triggered when user says "I want to build an Agent", "agent requirements", "agent spec", or "should I use an Agent".
+disable-model-invocation: true
+description: Internal AgentForge Phase 0 specification workshop. Load only when explicitly named or selected by the agentforge router; do not force this questionnaire on ordinary Agent requests.
 triggers:
   - I want to build an Agent
   - Agent requirements

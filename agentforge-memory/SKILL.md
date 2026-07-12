@@ -1,6 +1,7 @@
 ---
 name: agentforge-memory
-description: AgentForge Phase 4 — Memory system selection. Three-school decision tree (File Memory / Block Memory / Hierarchical Semantic Memory) + progress file design + session persistence. Triggered when the user says "Agent memory", "cross-session persistence", or "agent state persistence".
+disable-model-invocation: true
+description: Internal AgentForge Phase 4 memory guide. Load only when explicitly named or selected by the agentforge router; do not auto-trigger for ordinary memory, persistence, or state questions.
 triggers:
   - Agent memory
   - cross-session persistence

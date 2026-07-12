@@ -1,6 +1,7 @@
 ---
 name: agentforge-evolution
-description: AgentForge Phase 11 - Agent Self-Evolution Design. L0-L3b evolution level gradient + principles (DGM/Voyager/DSPy) + architectural patterns + safety boundaries + implementation code. Triggered when user says "self-evolving agent", "agent self-modification", "self-evolution architecture", "evolution agent".
+disable-model-invocation: true
+description: Internal AgentForge Phase 11 self-evolution guide. Load only when explicitly named or selected by the agentforge router; it never authorizes self-modification or autonomous application of changes.
 triggers:
   - self-evolving agent
   - agent self-modification

@@ -1,6 +1,7 @@
 ---
 name: agentforge-multiagent
-description: AgentForge Phase 7 — Multi-agent coordination. 5 sub-agent spawn modes (sync/async/worktree/remote/adversarial-debate) + agent registry + communication protocols + anti-patterns. Triggered when the user says "multi-agent", "sub-agent", or "agent coordination".
+disable-model-invocation: true
+description: Internal AgentForge Phase 7 coordination guide. Load only when explicitly named or selected by the agentforge router; it never authorizes spawning sub-agents and must yield to host delegation policy.
 triggers:
   - multi-agent
   - sub-agent
@@ -16,7 +17,7 @@ metadata:
 # AgentForge Phase 7: Multi-Agent Coordination
 
 > Previous: `/agentforge-harness` | Next: `/agentforge-ship` | Series entry: `/agentforge`
-> Orchestrating existing agents: `/dev-orchestrator`
+> Orchestrating existing agents: use the host's native sub-agent and worktree controls.
 > Deep theory: `/multiagent-topology`, `/stigmergy-coordination`, `/collective-intelligence-design`
 
 ## Opening Warning: The Most Important Anti-Pattern

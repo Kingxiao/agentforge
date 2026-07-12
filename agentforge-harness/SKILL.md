@@ -1,6 +1,7 @@
 ---
 name: agentforge-harness
-description: AgentForge Phase 6 - Harness Engineering. CLAUDE.md/AGENTS.md authoring, Hook configuration, Agent failure diagnosis, architectural constraints, verification loops, team collaboration. The official successor to harness-engineering. Triggered when the user says "harness", "agent reliability", "Hook configuration", "CLAUDE.md", or "agent keeps making the same mistake".
+disable-model-invocation: true
+description: Internal AgentForge Phase 6 harness guide. Load only when explicitly named or selected by the agentforge router; do not auto-trigger for AGENTS.md, CLAUDE.md, hooks, reliability, or ordinary Agent failures.
 triggers:
   - harness
   - agent reliability

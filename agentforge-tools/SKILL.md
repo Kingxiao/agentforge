@@ -1,6 +1,7 @@
 ---
 name: agentforge-tools
-description: Agent tool system design guide. Tool interface design + concurrency strategy + MCP integration + lazy loading + tool count paradox. Triggered when user says "Agent tool system", "tool system", "tool interface", "MCP integration", or "agent tools design".
+disable-model-invocation: true
+description: Internal AgentForge Phase 2 tool-system guide. Load only when explicitly named or selected by the agentforge router; do not auto-trigger for generic tools, interfaces, MCP, or integration questions.
 triggers:
   - Agent tool system
   - tool system

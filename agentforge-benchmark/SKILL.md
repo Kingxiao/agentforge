@@ -1,6 +1,7 @@
 ---
 name: agentforge-benchmark
-description: AgentForge Phase 12 — Agent testing, acceptance, and benchmark evaluation. Test layering strategy + tool call mocking + industry benchmark index (SWE-bench/WebArena/AgentBench/τ-bench) + custom benchmark design + acceptance criteria framework. Triggered when user says "agent testing", "agent acceptance", "benchmark", "SWE-bench", or "how to test an agent".
+disable-model-invocation: true
+description: Internal AgentForge Phase 12 benchmark guide. Load only when explicitly named or selected by the agentforge router; ordinary testing, acceptance, and benchmark requests use host-native analysis.
 triggers:
   - agent testing
   - agent acceptance

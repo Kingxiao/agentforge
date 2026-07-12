@@ -1,6 +1,7 @@
 ---
 name: agentforge-architecture
-description: Agent architecture selection guide. 8 loop paradigms (Async Generator / Submission-Handler / PubSub Event / Reflection Chain / Plugin Gateway / Code Generation / Event-Driven Webhook / Realtime-Voice) + language selection + Provider abstraction. Triggers when user asks about "Agent architecture selection", "how to design Agent loop", "which language to use for Agent".
+disable-model-invocation: true
+description: Internal AgentForge Phase 1 architecture guide. Load only when explicitly named or selected by the agentforge router; do not auto-trigger from generic architecture, language, or Agent questions.
 triggers:
   - Agent architecture selection
   - Agent loop

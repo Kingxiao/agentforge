@@ -1,6 +1,7 @@
 ---
 name: agentforge-production
-description: AgentForge Phase 9 - Agent production runtime. Brain/Hands/Session decoupling, lazy provisioning, container resilience, credential isolation, observability, scaling patterns. Triggered when user says "agent production", "agent runtime", "agent operations", "agent as a service".
+disable-model-invocation: true
+description: Internal AgentForge Phase 9 production-runtime guide. Load only when explicitly named or selected by the agentforge router; do not auto-trigger for generic infrastructure, runtime, operations, or scaling work.
 triggers:
   - agent production
   - agent runtime

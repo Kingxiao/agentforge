@@ -1,10 +1,10 @@
 ---
 name: agentforge-diagnose
+disable-model-invocation: true
 description: >
-  Systematically diagnose and optimize analysis for existing agents. Supports
-  repository code static audit, online agent static plus dynamic diagnosis,
-  symptom hypothesis diagnosis, and live testing. Outputs 9-dimension scoring
-  and a prioritized fix plan.
+  Internal AgentForge diagnosis phase. Load only when explicitly named or
+  selected by the agentforge router; do not auto-trigger from generic debugging,
+  audit, optimization, repository review, or live testing requests.
 series: agentforge
 phase: diagnose
 version: 2.0

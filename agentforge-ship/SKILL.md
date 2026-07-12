@@ -1,6 +1,7 @@
 ---
 name: agentforge-ship
-description: AgentForge Phase 8 - Agent packaging and release. Release form selection + per-language packaging recipes + CI/CD + version management. Triggered when user says "Agent release", "Agent packaging", "Agent deployment", or "ship agent".
+disable-model-invocation: true
+description: Internal AgentForge Phase 8 packaging guide. Load only when explicitly named or selected by the agentforge router; loading it never authorizes commit, push, release, deployment, or other external mutations.
 triggers:
   - Agent release
   - Agent packaging
