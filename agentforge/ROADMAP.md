@@ -1,5 +1,7 @@
 # AgentForge Roadmap
 
+> Archived v2 research proposal. It is not normative skill guidance and is superseded by `series-manifest.json` plus the v3.0 phase files (2026-08-08). In particular, controlled evolution is optional Phase 11 and never grants self-modification authority.
+
 ## v2 Core Upgrade: Self-Evolution as a Cross-Cutting Concern
 
 > Decision date: 2026-04-06
@@ -9,22 +11,25 @@
 
 1. **Build for the future** — Don't base decisions on the current static reality of Agents, but lay foundations for the coming era of self-evolving Agents
 2. **Principles are stable, implementations evolve** — Decision trees and architectural principles remain relatively stable, but specific tech stacks, frameworks, and concepts will shift rapidly. The value of skills lies at the principle level, not the implementation level
-3. **Cross-cutting injection, not appended Phase** — Self-evolution capabilities should influence every Phase's decisions, not appended as Phase 10
+3. **Feedback is cross-cutting; mutation is not** — observability, evaluation, and rollback affect many phases. Controlled evolution remains optional Phase 11 and does not authorize automatic modification.
 
 ### Self-Evolution Cross-Cutting Injection by Phase
 
 | Phase | v1 View (Static) | v2 View (Self-Evolution Native) |
 |-------|---|---|
 | 0 Spec | "Should we build an Agent?" | + "What level of adaptive capability does this Agent need?" |
-| 1 Architecture | Choose Loop paradigm | + Choose Loop supporting runtime self-modification (DGM outer loop, metacyclic interpreter pattern) |
-| 2 Tools | Fixed toolset | + Dynamic tool registry + automatic tool discovery (Voyager skill synthesis) |
+| 1 Architecture | Choose Loop paradigm | + Preserve explicit evaluation and rollback boundaries for future controlled experiments |
+| 2 Tools | Fixed toolset | + Consider a versioned tool registry only when measured adaptation needs justify it |
 | 3 Context | Static prompt layering | + Automatic prompt search space optimization (DSPy Compiler) + adaptive context budgeting |
 | 4 Memory | Cross-session persistence | + Experience→skill elevation channel + automatic forgetting/compression (computational economics driven) |
-| 5 Security | Tamper resistance | + Self-modifying code sandbox verification loop (DGM sandbox → commit/reset) |
+| 5 Security | Tamper resistance | + Isolate candidate experiments; promotion and rollback follow authorized host workflows |
 | 6 Harness | Manual Hashimoto Loop | + Automated Hashimoto Loop (Agent observes failure → self-repairs harness) |
 | 7 Multi-Agent | Coordinated execution | + Mutual training and co-evolution (SiriuS bootstrapped reasoning) + island model parallel evolution |
 | 8 Ship | Package and distribute | + Self-evolving Agent version management (behavior change ≠ code change version semantics) |
-| 9 Autoplan | Serial orchestration | + Evolution-aware Phase skip logic ("Does this Agent need self-evolution?" → affects entire pipeline) |
+| 9 Production | Runtime operation | + Monitor drift and retain reversible rollout evidence |
+| 10 Autoplan | Serial orchestration | + Ask whether controlled evolution is applicable; default to N/A without evidence and authorization |
+| 11 Evolution | Optional experiments | + Propose, isolate, evaluate, approve, promote or discard |
+| 12 Benchmark | Acceptance | + Held-out regression and non-inferiority gates for any candidate change |
 
 ### Pre-Research: Repos to Reverse-Engineer
 

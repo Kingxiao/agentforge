@@ -11,14 +11,16 @@ triggers:
   - agent evaluation
   - how to test an agent
 metadata:
-  version: "1.0.0"
-  last_updated: "2026-04-07"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 ---
 
 # AgentForge Phase 12: Testing, Acceptance & Benchmarking
 
-> Previous step: `/agentforge-evolution` (Phase 10) | Series entry: `/agentforge`
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
+
+> Previous step: `/agentforge-evolution` (Phase 11), or any runnable Agent/workflow | Series entry: `/agentforge`
 > Observability companion: `/agent-observability`
 
 ## Core Understanding
@@ -108,7 +110,7 @@ def test_agent_reads_file_before_edit(mock_llm):
 Real LLM, real tools, full tasks. **Don't pursue bit-for-bit identical results every run — pursue statistically stable task completion rates.**
 
 **Implementation Key Points**:
-1. **Multiple sampling** — Run each test task 5-10 times, take pass rate (not single pass/fail)
+1. **Multiple sampling** — Repeat probabilistic tasks and report the number of tasks, repetitions, seeds/model settings, and uncertainty. Choose sample size from baseline variance, risk, and the minimum effect worth detecting; 5–10 repetitions are a smoke-test default, not proof of stability.
 2. **Task difficulty tiers** — P0 (core functionality) / P1 (common scenarios) / P2 (edge cases)
 3. **Turn budget** — Set max Agent turn limit per task; exceeding = failure
 4. **Acceptance method** — See "Decision 5: Acceptance Criteria Framework"
@@ -142,7 +144,7 @@ Before changing CLAUDE.md / Hook config / system prompt:
 1. Run full Level 3 tests on baseline task set, record baseline pass rate
 2. Execute Harness change
 3. Re-run same task set, compare pass rates
-4. Pass rate drops > 5% → rollback change, analyze root cause
+4. If the paired result breaches the predeclared non-inferiority margin or a critical regression fails, do not promote; analyze the cause
 
 ---
 
@@ -175,7 +177,7 @@ What's your Agent type?
 ├─ Coding Agent → SWE-bench is the gold standard
 │   ├─ Entry calibration: HumanEval (function-level, fast to run)
 │   ├─ Harness effect: Terminal Bench 2.0 (before/after comparison)
-│   └─ Production target: SWE-bench Verified > 30% (mid-2026 baseline)
+│   └─ Set a target against a dated, reproducible baseline for the chosen subset
 │
 ├─ GUI / Browser Agent → WebArena family
 │   ├─ Pure web: WebArena
@@ -210,7 +212,7 @@ Build your own when industry benchmarks don't cover your scenario.
 ```
 Step 1: Collect real tasks
   → Extract from user logs, support tickets, your own actual usage
-  → 50-200 tasks (representative enough, don't over-collect)
+  → Start with a risk-stratified set; expand until core scenarios and important failure modes are covered. Record the sampling frame instead of treating 50–200 as universally representative.
 
 Step 2: Establish labels via human acceptance
   → For each task: execute it manually, record "expected behavior" and "acceptance criteria"
@@ -224,7 +226,7 @@ Step 3: Define metrics
 
 Step 4: Automate evaluation
   → Use LLM-as-Judge or rule-based checker for auto-scoring
-  → Calibrate scorer accuracy on gold standard (requiring ≥ 90% agreement with human)
+  → Calibrate the scorer on a held-out human-labeled set; report agreement by verdict class and especially false-pass rate
 ```
 
 ### 0→1 Cold Start Strategy (how to build first gold samples with no historical data)
@@ -263,9 +265,9 @@ Step 3: Convert bugs immediately when first discovered
 - Level 3 (end-to-end): 10-15 core scenarios + 5 intentional failure scenarios
 
 **When to upgrade**:
-- Gold samples < 20 → can only make qualitative judgments, no statistical comparison
-- Gold samples 20-50 → can do simple pass rate comparison
-- Gold samples > 50 → LLM-as-Judge can be trusted (calibrate agreement rate at this scale for statistical meaning)
+- Small sets can support deterministic regression and qualitative discovery, but not broad population claims.
+- Pass-rate comparisons must report task count and uncertainty; sample count alone does not make the set representative.
+- An LLM Judge becomes usable only after held-out calibration meets the product's risk threshold. No fixed sample count makes it trustworthy automatically.
 
 ### Metric Design Principles
 
@@ -274,7 +276,7 @@ Step 3: Convert bugs immediately when first discovered
 - LLM output "subjective scores" (uncalibrated)
 
 **Metrics to use**:
-- Task completion rate over N samples (statistically stable)
+- Task completion rate over a documented sample, with confidence interval or paired comparison when making before/after claims
 - Turn efficiency (prevents Agent taking circuitous route but still passing)
 - Tool call Precision/Recall (which were called correctly, which were missed)
 
@@ -312,7 +314,7 @@ Output JSON: {"verdict": "PASS|FAIL|PARTIAL", "reason": "..."}
 """
 ```
 
-**Calibration requirement**: Verify Judge accuracy ≥ 90% agreement with human on 100 human-labeled samples — otherwise the Judge is not trustworthy.
+**Calibration requirement**: define the acceptable false-pass rate from product risk, then evaluate on a held-out, class-balanced human-labeled set. Report confusion matrix, agreement with uncertainty, disagreement review, judge/model version, and prompt version. A single aggregate agreement threshold can hide dangerous false passes.
 
 ### Acceptance Criteria Template (write into Agent Spec)
 
@@ -328,17 +330,17 @@ Output JSON: {"verdict": "PASS|FAIL|PARTIAL", "reason": "..."}
 - Average completion turns ≤ ___
 - Error recovery rate ≥ ___%
 
-### Regression protection (no degradation allowed)
+### Regression protection
 - Historical bug regression suite: 100% pass
-- Before/after Harness change: completion rate change < 5%
+- Before/after change: predeclare a non-inferiority margin and require the paired result or confidence interval to stay within it
 ```
 
 ---
 
-## Current State (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
-1. **SWE-bench has split into three versions** — SWE-bench Lite (nearly saturated, OpenAI found training data contamination, stopped reporting), SWE-bench Verified (current mainstream, Claude Opus 4.5 tops at 80.9%), SWE-bench Pro (launched 2026, harder, Augment Code Auggie leads on this version ~15-17 points ahead of commercial products). When selecting Coding Agent benchmarks, **prefer SWE-bench Verified or Pro — do not use SWE-bench Lite**
-2. **LLM-as-Judge going mainstream** — Anthropic and DeepMind both published LLM judge consistency research; on structured tasks, LLM Judge agrees with humans 85-92%, but still cannot replace humans on open-ended tasks
+1. **Benchmark variants are not interchangeable** — choose a dated SWE-bench variant and harness that matches the capability under test; record contamination concerns, exclusions, and exact evaluation commit. Do not compare scores across variants as if they share one scale.
+2. **LLM-as-Judge requires calibration** — structured rubrics can make judges useful, but agreement varies by task, label balance, judge, and prompt. Measure class-specific errors on your held-out labels.
 3. **τ-bench fills the tool-use Agent gap** — Existing benchmarks mostly test "single-turn Function Calling"; τ-bench introduces real noise (unclear user intent, mid-task tool failures) closer to production, becoming the standard acceptance platform for tool-use Agents
 4. **Custom benchmarks have more commercial value than industry benchmarks** — Industry benchmarks test "general capability"; your Agent faces specific scenarios. Custom benchmark scores are the real product quality metric. Recommendation: use industry benchmarks for model selection / Harness comparison; use custom benchmarks for product acceptance
 
@@ -346,8 +348,8 @@ Output JSON: {"verdict": "PASS|FAIL|PARTIAL", "reason": "..."}
 
 1. **Running once and calling pass/fail** — LLM output has randomness; single result confidence is low. Fix: Level 3 tests must sample multiple times (≥5), use pass rate not single-run result.
 2. **Using stale industry benchmark numbers** — Training data cutoff means remembered benchmark scores are 6-12 months behind. Fix: WebFetch latest rankings before use; don't use numbers from memory.
-3. **LLM-as-Judge uncalibrated** — Judge LLM's bias hasn't been validated against humans; evaluation results unreliable. Fix: Verify agreement rate on human-labeled gold samples, < 90% = not trustworthy.
-4. **Only testing happy paths** — Regression suite only contains success cases, no edge/failure scenarios. Fix: Every time an Agent failure is found → immediately convert to regression test case, **failure cases are worth 5x more than success cases**.
+3. **LLM-as-Judge uncalibrated** — Judge bias hasn't been validated against humans. Fix: measure class-specific errors on held-out labels and set a risk-based false-pass threshold.
+4. **Only testing happy paths** — Regression suite contains no edge/failure scenarios. Fix: convert reproducible failures into regression cases and weight scenarios from risk and frequency, not an arbitrary multiplier.
 5. **Putting Level 3 tests in CI** — End-to-end tests are expensive (real LLM calls), slow, and non-deterministic — not suitable for per-commit triggers. Fix: Level 1/2 → CI (every commit); Level 3 → daily scheduled runs + manual trigger before releases.
 
 ## Further Reading
@@ -369,14 +371,14 @@ Output JSON: {"verdict": "PASS|FAIL|PARTIAL", "reason": "..."}
 - [ ] End-to-end task set + acceptance criteria defined (Level 3)
 - [ ] Historical bugs converted to regression cases
 - [ ] Industry benchmark reference specified (SWE-bench / τ-bench / WebArena etc., per Agent type)
-- [ ] LLM-as-Judge calibrated on gold samples at ≥ 90% agreement (if using automated acceptance)
+- [ ] LLM-as-Judge calibrated on a held-out labeled set with class-specific errors and acceptable false-pass rate
 - [ ] Level 3 tests NOT triggered per CI commit (cost control)
 - [ ] "Acceptance criteria" field filled in Agent Spec (see `/agentforge-spec`)
-- [ ] **Research / Q&A Agent special**: acceptance includes hallucination rate spot checks (randomly sample ≥20 outputs, manually verify citation source accuracy); target <20% hallucination rate, otherwise not production-ready (2026 data: mainstream Research Agent citation hallucination rate 26-37%, Agentic RAG without external verification hooks especially high-risk)
+- [ ] **Research / Q&A Agent special**: acceptance includes citation entailment and source-accuracy checks on a risk-stratified sample; set the threshold from the use case and report sample size
 
 ## Reverse Audit (Diagnose Mode)
 
-> Called by `/agentforge-diagnose` — performs D9 benchmark testing dimension static audit on existing code.
+> Called by `/agentforge-diagnose` — performs D10 benchmark testing dimension static audit on existing code.
 
 | # | Check Item | How to Check | Pass Criteria |
 |---|-----------|-------------|---------------|

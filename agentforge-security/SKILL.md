@@ -10,12 +10,14 @@ triggers:
   - agent security
   - agent permissions
 metadata:
-  version: "2.0.0"
-  last_updated: "2026-04-06"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 ---
 
 # AgentForge Phase 5: Security / Sandbox / Permission Design
+
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
 
 > Previous: `/agentforge-memory` (Phase 4) | Next: `/agentforge-harness` (Phase 6) | Series entry: `/agentforge`
 > Security audit tool: `/security-auditor`
@@ -363,8 +365,8 @@ Goose integrates sigstore for malicious code detection on tools/extensions:
 
 ```
 Context usage monitoring:
-├── < 75% → normal operation
-├── ≥ 75% → trigger auto-compression (summarize historical context)
+├── below measured warning threshold → normal operation
+├── warning threshold → trigger tested compaction or checkpoint policy
 │   ├── 1st compression → continue
 │   ├── 2nd compression → continue (max 2 retries)
 │   └── 3rd trigger → terminate session, prompt user to open a new session
@@ -380,9 +382,9 @@ Context usage monitoring:
 
 Strongest isolation — Agent runs in an independent container.
 
-### OpenHands 6 Runtime Backend Types [OH]
+### OpenHands Runtime Backends [OH]
 
-6 runtime types (Local / CLI / Docker / Remote / K8s / E2B Cloud) — see trade-offs table below.
+Treat runtime support as versioned product behavior. The reviewed first-party set comprises local, Docker, remote, and Kubernetes-style backends; hosted third-party runtimes such as E2B are deployment alternatives, not necessarily first-party OpenHands backends. Verify the installed version before generating configuration.
 
 ### Runtime Selection Decision Tree
 
@@ -396,8 +398,8 @@ What is your Agent's deployment scenario?
 │   ├── Need GPU? → Remote Runtime (GPU machine)
 │   └── Need elastic scaling? → K8s Runtime
 │
-└── SaaS product → E2B Cloud Runtime
-    └── Cost-sensitive? → downgrade to K8s Runtime (self-managed cluster)
+└── SaaS product → choose a verified hosted sandbox or a self-managed container/Kubernetes runtime
+    └── Decide from isolation, cold-start, operations ownership, residency, and measured cost
 ```
 
 ### Trade-offs
@@ -417,7 +419,7 @@ What is your Agent's deployment scenario?
 
 ## RAG / Knowledge Agent Specific Threat: Indirect Prompt Injection
 
-> **OWASP LLM01:2025**: 5 malicious documents can manipulate output in 90% of cases; four-layer defense reduces attack success rate from 73.2% to 8.7%, maintaining 94.3% normal task performance.
+> **OWASP LLM01:2025** distinguishes direct and indirect prompt injection and states that no fool-proof prevention exists. The four layers below are a defense-in-depth design pattern, not a quantified guarantee. Test them against the system's own threat corpus.
 
 **Attack path**: Attacker pre-plants `"Ignore all previous instructions..."` in Confluence/Notion knowledge base → RAG retrieves and injects into LLM Context → executes malicious instructions (data exfiltration / HTTP requests)
 
@@ -702,12 +704,12 @@ This is the most frequently overlooked layer in the AgentForge security system, 
 | Dimension | Trigger Condition | Key Requirements |
 |------|---------|---------|
 | **GDPR / CCPA (Privacy)** | Processing EU/California user data | Data minimization, user deletion rights, privacy policy, DPA |
-| **Recording/transcription informed consent** | Meeting assistant, real-time transcription, recording feature | Most jurisdictions require all participants' consent (mutual consent laws). China, Germany, France are mutual consent law representatives. Some US states are single-party consent. |
+| **Recording/transcription consent** | Meeting assistant, real-time transcription, recording feature | Rules vary by jurisdiction, parties' locations, communication type, notice, and purpose. Default product behavior may request notice and consent from all participants, but legal sufficiency requires qualified review for the target market. |
 | **HIPAA (Healthcare)** | Processing health information (meetings involving patients, medical records) | Must sign BAA (Business Associate Agreement); tool call logs must not contain PHI |
 | **SOC 2 / ISO 27001** | Enterprise customers, B2B scenarios | Requires audit log integrity, access control, disaster recovery |
 | **PCI DSS** | Processing payment data | Card numbers, CVV must not be stored; must not appear in LLM context |
-| **Cross-border data transfer** | Data stored outside jurisdiction | China: Equalprotect 2.0, data not leaving China principle; EU: SCCs or data localization |
-| **AI content regulation** | Generative AI output | EU AI Act (2024) requires high-risk AI system transparency, human oversight |
+| **Cross-border data transfer** | Data accessed or stored across jurisdictions | Identify data categories, controller/processor roles, destination, transfer mechanism, exemptions, and localization duties; obtain target-jurisdiction review. Do not infer a blanket localization rule from MLPS/Equal Protection requirements. |
+| **AI content regulation** | Generative AI output | Classify the use case and applicable obligations; do not assume every generative feature is a high-risk system. |
 
 ### Meeting/Recording Scenario Compliance Decision Tree (Common Misconceptions)
 
@@ -715,17 +717,16 @@ This is the most frequently overlooked layer in the AgentForge security system, 
 Does your Agent record or transcribe audio in real time?
 │
 ├─ Yes
-│  Where are the users?
-│  ├─ China → all participants must consent + data localization required
-│  ├─ Germany/France → all participants must explicitly consent (mutual consent law)
-│  ├─ US → depends on state (California, Maryland, etc. = mutual consent)
-│  │          Federal level: single-party consent, but state law prevails
-│  └─ Implementation principle: default to prompting all participants, don't rely on "single-party is legal" gamble
+│  Where are the recorder, participants, service, and stored data?
+│  ├─ Identify each relevant jurisdiction and product role
+│  ├─ Ask qualified counsel to determine notice/consent and transfer requirements
+│  └─ Conservative product default: visible notice, affirmative consent where feasible,
+│     opt-out/leave path, retention controls, and auditable policy version
 │
 └─ No (text-only input) → usually no recording compliance issue, but GDPR still applies
 
 Implementation requirements:
-  - Show "This meeting is being recorded by AI" notice at meeting start
+  - Show a clear recording/transcription notice before capture begins
   - Participants can opt out at any time (right not to be recorded)
   - Stored transcripts have defined retention period and deletion mechanism
 ```
@@ -786,9 +787,9 @@ Three new variants: **LLM dependency package poisoning** (e.g., LiteLLM 2026-03 
 
 ---
 
-## Current State (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
-1. **Prompt Injection remains the #1 threat, with real-world cases in 2026** — Indirect injection attack surface grows linearly with Agent tool count; no silver bullet defense — multi-layer mitigation (input sanitization + Guardian AI + operation sequence anomaly detection) is industry consensus. **2026 real-world cases**: ① GitHub Copilot leaked repo secrets via invisible Markdown comments in PRs; ② January 2026, Anthropic official Git MCP server found 3 injection vulnerabilities where polluting README/Issue descriptions triggers code execution. Unprotected Agent single injection success rate **17.8%** (OWASP 2025 experiment data)
+1. **Prompt injection remains a primary Agent threat** — indirect injection risk grows with untrusted content and consequential tools. OWASP states there is no fool-proof prevention; use least privilege, data/instruction separation, approval gates, output/tool validation, monitoring, and system-specific adversarial tests. Do not attach unsourced universal success rates.
 2. **OS-level sandboxing moving toward standardization** — Landlock LSM in Linux **6.7+** kernel supports network rules (ABI v4: TCP BindTcp/ConnectTcp, **excluding UDP/DNS**); cross-platform sandbox abstraction layer is urgently needed
 3. **MCP security specification taking shape** — Model Context Protocol's OAuth 2.1 authentication + tool permission declarations have become the de facto security standard for multi-Agent tool calling
 4. **AI Agent supply chain emerging as new attack surface** — APT groups like TeamPCP are targeting AI infrastructure (LiteLLM, LangChain, etc.); attack priority is significantly higher than normal package poisoning due to Agents' elevated privileges

@@ -9,19 +9,23 @@ triggers:
   - MCP integration
   - agent tools design
 metadata:
-  version: "2.0.0"
-  last_updated: "2026-04-11"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 ---
 
 # AgentForge Phase 2: Tool System Design
+
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
+
+Tool-call concurrency is entirely owned by this phase; it does not require the multi-agent phase.
 
 > Previous: `/agentforge-architecture` | Next: `/agentforge-context` | Series entry: `/agentforge`
 > Building MCP servers: `/mcp-builder`
 
 ## Core Principle
 
-> **More tools ≠ more capability. Vercel improved after deleting 80% of their tools.** [CC]
+> **More tools ≠ more capability.** Vercel reported improvement after a large tool simplification on five representative queries; benchmark the principle on your own task set.
 
 Reasons: (1) every tool definition consumes prompt tokens, (2) choice paralysis — the more tools, the easier the LLM picks the wrong one, (3) overlapping functionality causes unpredictable behavior.
 
@@ -91,9 +95,9 @@ SWE-agent (Princeton/Stanford, NeurIPS 2024): domain-specific tools outperform g
 
 ### Partition Strategy [CC] (Recommended)
 
-Partition tool calls by `isConcurrencySafe()` → concurrency-safe (FileRead, Glob, Grep, WebFetch, WebSearch) run via `Promise.all()` / goroutine / rayon; state-changing (FileWrite, FileEdit, Bash, Git) run serial.
+Partition calls by declared effects and concrete resources. Read-only calls are candidates for parallelism; state-changing calls default to serial unless independence is proven for this batch. Tool class alone is insufficient: two edits to different files may still share generated artifacts, locks, formatters, or repository state.
 
-**Principle**: Default to serial (safe); explicitly mark concurrency-safe tools for parallelism.
+**Principle**: default to serial; parallelize only after declaring read/write resources, external side effects, and dependency edges.
 
 ### Concurrency Strategy Comparison
 
@@ -112,11 +116,15 @@ Concurrency safety is a **semantic property**, not an implementation property. J
 Examples:
 - `FileRead("a.py") + FileRead("b.py")` → safe (read-only, independent)
 - `Bash("eslint src/a.js") + Bash("eslint src/b.js")` → safe (stateless, independent files)
-- `FileEdit("a.py") + FileEdit("b.py")` → safe (different files)
+- `FileEdit("a.py") + FileEdit("b.py")` → candidate for parallelism when no shared generated state or semantic dependency exists
 - `FileEdit("a.py") + FileEdit("a.py")` → **not safe** (write-write conflict)
 - `Bash("npm test") + Bash("npm test")` → **not safe** (shared test DB/port)
 
-**Practical guidance**: `isConcurrencySafe()` is the tool's default safety declaration. Wrappers around stateless Bash commands (lint, format, read-only analysis) can override to `true`, but must document the rationale. Global serial is the safe fallback, not the optimal solution.
+The different-file example is safe only when the edits have no shared generated files, formatter, lock, or semantic dependency. For a concrete batch, construct a DAG: same-resource writes are ordered; validation waits for all writes it observes; independent resources may share a wave.
+
+**Scheduler detail**: a static `await Promise.all([A1, B1]); A2()` adds a barrier from `B1` to `A2` even when the DAG has no such edge. When latency matters, keep independent promises separate: start `A1` and `B1`, chain `A2` from `A1`, then wait for `A2` and `B1` before validation. Use `allSettled` or equivalent when partial-success reporting is required so one rejection does not hide the other result.
+
+**Failure rule**: preserve and report partial successes. Re-read current state before retrying an edit. Do not fall back from a precise edit to whole-file overwrite, run `git stash`, revert user changes, or perform another broader mutation unless the user authorized it and the current state was verified.
 
 ### IterationBudget with Refund Pattern [HR]
 
@@ -127,7 +135,7 @@ Beyond parallelization, tool execution cost can be managed at the **iteration bu
 
 **Effect**: model is subtly incentivized to use code for loops rather than calling the same tool 20 times — loop-via-code costs 1 budget unit, 20 separate tool calls cost 20.
 
-**Budget pressure injection**: inject warnings as a `_budget_warning` key inside the last tool result JSON (not as a separate message) — preserves prompt-cache structure. Thresholds: 0–70% no warning; 70–90% "consider wrapping up" nudge; 90%+ "urgent: final N iterations."
+**Budget pressure injection**: expose remaining budget through a stable, trusted control channel understood by the loop. Do not mix control instructions into untrusted tool payloads. Set warning and stop thresholds from successful-trace distributions, task risk, latency, and cost; keep a hard external cap independent of model compliance.
 
 **When to use**: long-running agents where users might issue open-ended tasks. Parent cap (e.g. 90), subagent cap (e.g. 50) — parent + children can exceed parent cap combined (subagent work shouldn't block parent).
 
@@ -141,7 +149,7 @@ Beyond parallelization, tool execution cost can be managed at the **iteration bu
 
 ### CLI Tool First Principle
 
-**If a CLI tool is already in the LLM's training data, prefer invoking it via Bash rather than wrapping it as an MCP tool.** The LLM already "knows" `git`, `grep`, `curl`, etc. Additional MCP wrapping adds complexity without adding capability. Vercel improved after deleting 80% of their custom tools — that's why.
+Prefer an existing CLI when it gives adequate schema discipline, permissions, bounded output, error recovery, and observability. Wrap it when the Agent needs a narrower capability or typed contract. Familiarity in model training data is not, by itself, a security or reliability argument. Vercel reported a strong improvement after simplifying tools in a five-query case study; use that as motivation to benchmark simplification, not as a universal rule.
 
 ## Decision 4: MCP Integration
 
@@ -155,7 +163,7 @@ MCP (Model Context Protocol) is the standard protocol for tool extension. All ma
 
 ### MCP Integration Checklist
 
-- [ ] Supports stdio AND Streamable HTTP transports
+- [ ] Supports the transport(s) required by the deployment: stdio for local child processes, Streamable HTTP for remote/shared services
 - [ ] Tool names prefixed with server name to prevent conflicts
 - [ ] Reconnection mechanism when server crashes
 - [ ] Server tool list supports dynamic refresh
@@ -342,13 +350,15 @@ Injects file content into context via API rather than local file reading: `User 
 
 ### Realtime / Voice (Real-time Streaming)
 
-**Fundamental difference**: WebSocket bidirectional stream, not HTTP request-response. <500 ms latency constraint. All 5 standard loop paradigms (see `/agentforge-architecture`) are request-response based — Realtime requires a separate architecture. Options: OpenAI Realtime API, Google Gemini Live API, OpenClaw `realtime-voice/provider-registry.ts`.
+**Fundamental difference**: WebSocket bidirectional stream, not ordinary HTTP request-response. Low-latency and interruption requirements may justify the separate Realtime architecture in `/agentforge-architecture`; verify current provider capabilities before selecting one.
 
-## Capability Freshness Check (Must Execute Before Any Selection)
+## Capability Freshness Check (When Current Product Facts Matter)
 
 > AI capabilities have major updates every quarter. Anything documented here has a cutoff date and **must not be used as final decision basis**. Before confirming any selection, **WebFetch** the following real-time data:
 
-**Must check, every Agent selection**:
+Use network lookup only when the user authorizes it and the decision depends on changeable facts such as current availability, pricing, limits, or model capability. If browsing is unavailable, label the selection provisional and state what must be verified. Prefer primary provider documentation; rankings are secondary signals.
+
+**Sources to check when applicable**:
 
 | Purpose | Real-time Source |
 |---------|----------------------|
@@ -368,7 +378,7 @@ Injects file content into context via API rather than local file reading: `User 
 | Long context support comparison | https://www.morphllm.com/llm-context-window-comparison |
 | LLM inference cost trends | https://epoch.ai/data-insights/llm-inference-price-trends/ |
 
-**Execution protocol**: (1) WebFetch platform changelog → confirm needed capabilities are GA, not Beta. (2) WebFetch artificialanalysis.ai → confirm current best cost-performance model. (3) When this skill's content diverges from real-time data, **real-time data takes precedence**.
+**Execution protocol**: verify required capabilities in primary documentation, record the access date, then use independent benchmarks only for the dimensions they actually measure. Current evidence takes precedence over stale examples, but never expands network authorization.
 
 ## Agent Tools vs Domain Tools: Two Tool Categories
 
@@ -381,11 +391,11 @@ Agent systems depend on two categories of tools that require different selection
 | **Selection guided by** | This Phase — interface design, concurrency, lazy loading | **User's domain expertise** — agentforge cannot evaluate domain tool quality |
 | **Who evaluates** | Agent can search and evaluate (MCP registry, tool count paradox, etc.) | User must evaluate or search independently |
 
-**Why this matters**: agentforge-tools covers Agent tool design comprehensively (Decisions 1–12). But many Agent systems also depend on domain tools the Agent doesn't "call" — it uses them in its generated code. These are invisible to the Agent tool interface but critical to system functionality.
+**Why this matters**: this phase covers seven core tool-system decisions plus specialized patterns. Many systems also depend on domain libraries the Agent does not call through its tool protocol; those require separate domain evaluation.
 
 **Guidance**: when your Agent operates in a specialized domain, identify domain tools early (Phase 0 Spec) and evaluate them independently. Search for current framework comparisons and benchmarks in your domain — this Phase cannot provide domain-specific recommendations because they change faster than the skill can track.
 
-## Current State (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
 1. **MCP becoming de facto standard** — Anthropic's Model Context Protocol adopted by OpenAI, Google, Microsoft. Tool interoperability essentially solved. Custom tool protocols no longer necessary.
 2. **Streamable HTTP replacing SSE** — MCP transport migrating from SSE to Streamable HTTP. Supports stateless deployment and horizontal scaling.
@@ -448,7 +458,7 @@ A `StreamingTool` base class provides three methods: `call(input)` fetches recen
 
 ## Known Pitfalls
 
-1. **Tool explosion syndrome** — Creating separate tools for each API endpoint inflates tool count to 50+; LLM selection accuracy drops off a cliff. Fix: merge similar tools into parameterized tools (e.g. `database_query` instead of `get_users` / `get_orders` / `get_products`). Keep core tools ≤ 15.
+1. **Tool explosion syndrome** — overlapping endpoint-shaped tools can make selection harder. Fix: merge tools when users and evaluations show the same intent being split artificially; keep separate tools when permissions, schemas, or failure modes differ. Validate routing accuracy instead of enforcing one count threshold.
 2. **MCP cold-start latency** — stdio MCP servers have 2–5 s first-call latency due to process startup. Fix: connection pool + pre-warm, or use Streamable HTTP + resident service.
 3. **Tool description / schema drift** — LLM understands function from description but constructs parameters from schema; inconsistency causes call failures. Fix: auto-generate descriptions from schema, or add consistency check in CI.
 4. **Concurrency safety marking missing** — All-serial is slow; blind parallel causes race conditions. Fix: strictly enforce "default serial + explicit concurrency-safe marking"; document rationale per tool.
@@ -470,10 +480,10 @@ A `StreamingTool` base class provides three methods: `call(input)` fetches recen
 
 - [ ] Tool interface defined (at minimum: name, schema, call, validateInput)
 - [ ] Each tool annotated with concurrency safety
-- [ ] Partitioned concurrency implemented (read-only parallel / write serial)
+- [ ] Batch dependencies expressed by resource/effect DAG; independent calls may run in parallel
 - [ ] Error messages include fix suggestions
-- [ ] Total tool count ≤ 15 (core) + MCP on demand
-- [ ] Supports MCP stdio transport
+- [ ] Tool routing evaluated; overlapping tools consolidated or justified by permissions/schema/failure semantics
+- [ ] Required MCP transport(s) selected and tested, or MCP marked not applicable
 
 ## Reverse Audit (Diagnose Mode)
 
@@ -481,13 +491,13 @@ A `StreamingTool` base class provides three methods: `call(input)` fetches recen
 
 | # | Check | How to Check | Pass Standard |
 |---|-----------|-------------|--------------|
-| T1 | Tool count reasonable | `grep -rn "@tool\|register_tool\|add_tool" src/ \| wc -l` | ≤ 10 core tools (≤ 15 including MCP) |
+| T1 | Tool set discriminable | Inspect registrations and routing failures | Each tool has a distinct intent or permission boundary; observed selection errors are within target |
 | T2 | Tool descriptions clear | Read registration code; check docstring/description | Each tool has clear usage documentation |
 | T3 | Supports concurrent execution | `grep -rn "Promise.all\|asyncio.gather\|go func" src/` | Concurrency patterns OR explicit "serial by design" comment |
 | T4 | Large data not passed directly | Check tool return handling | Binary/large files use path references, not embedded |
 | T5 | Tool results have limits | `grep -rn "max_length\|truncat\|limit" src/ \| grep -i tool` | `max_tokens` or length control |
 
-**High-probability issues**: Tool count > 15 (P1 — success rate drops), all tools serial with no concurrency (P2 — latency), no tool descriptions (P1 — LLM picks wrong tool).
+**Common candidates to verify**: overlapping tools with observed selection errors; blind serial execution causing measured latency; unsafe parallel effects; vague descriptions; unbounded results.
 
 ## Next Step
 

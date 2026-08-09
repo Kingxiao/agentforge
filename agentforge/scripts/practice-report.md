@@ -1,10 +1,11 @@
 # agentforge Practice Verification Report
 
 > Wave 6 Output | Verification date: 2026-04-08
+> Status: historical design walkthrough, not an effectiveness benchmark. Estimates and web-verified product facts below must not be treated as current evidence.
 
 ## Verification Methodology
 
-**Full Cycle Simulation**: Using the PR Review Agent (GitHub CI scenario) as a sample, running through agentforge Phase 0→9 in sequence and recording:
+**Single-scenario simulation**: Using a PR Review workflow as a sample, walking through the then-current phases and estimating:
 1. User cognitive cost per Phase
 2. Whether deliverables match expectations
 3. Gap between skill guidance and actual operation
@@ -51,7 +52,11 @@
 - **Deliverable**: `.github/workflows/pr-review.yml` + README configuration guide
 - **Cognitive cost**: Low. Templates directly usable
 
-### Phase 9 (Autoplan) — Self-Evolution
+### Phase 9 (Production) — Runtime Applicability
+- **Deliverable**: Not applicable for a GitHub-hosted Action; GitHub owns job scheduling and worker lifecycle. Retry, permissions, logs, and failure notification remain explicit workflow concerns.
+- **Cognitive cost**: Low
+
+### Phase 10 (Autoplan) — Full-Process Orchestration
 - **Deliverable**: Record feedback.jsonl for next iteration to improve review prompt
 - **Cognitive cost**: Medium. Requires user to proactively establish feedback mechanism; skill's actionable guidance lacks concreteness
 
@@ -70,8 +75,8 @@
 | 6 Harness | 15 min | Hash pinning not intuitive |
 | 7 MultiAgent | 2 min | None (directly skipped) |
 | 8 Ship | 10 min | None |
-| 9 Autoplan | 15 min | Feedback mechanism lacks actionable feel |
-| **Total** | **~104 min** | Concentrated in Phase 1 + Phase 3 + Phase 6 |
+| 10 Autoplan | 15 min | Feedback mechanism lacks actionable feel |
+| **Total** | **~104 min estimated** | Single walkthrough; no repeated timing or baseline |
 
 ---
 
@@ -88,7 +93,9 @@
 
 ---
 
-## Technical Conclusion Verification
+## Historical Product-Fact Checks
+
+The following table records what the 2026-04-08 walkthrough claimed to check. It lacks retained source excerpts and is stale under `EVIDENCE.md`; re-verify primary sources before use.
 
 | Conclusion | Source | Verification Method | Status |
 |------|------|---------|------|
@@ -105,4 +112,4 @@
 
 ## Conclusion
 
-The agentforge series performed consistently in the PR Review Agent full-cycle verification. Phase 0/2/4/7/8 showed no significant gaps; main friction concentrated at three nodes with complex external dependencies (Architecture selection / Context cache parameters / Harness security configuration). All 6 gaps found were fixed through Hashimoto Loop; post-fix estimated total user time drops from ~104 minutes to ~75 minutes (28% reduction).
+This walkthrough found useful routing and several documentation gaps, but one simulated scenario cannot establish series effectiveness. The ~104 and ~75 minute values were estimates without repeated measurements, raw logs, or an independent baseline; the claimed 28% improvement is therefore withdrawn. Use `tests/eval-cases.json` plus repeated, versioned runs for before/after claims.

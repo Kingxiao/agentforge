@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "scheduled-workflow-routing",
+      "prompt": "场景：每天北京时间 09:00 抓取 5 个竞品官网的公开更新，摘要后发送到一个 Slack 频道。请给出：(1) Agent 类型与最低自治等级；(2) 必须、可选、跳过的 AgentForge 阶段；(3) 最小可行架构；(4) 何时才需要升级为自主 Agent。",
+      "required": ["固定工作流或定时流水线", "Level 2", "P9 取决于部署形态", "不需要自主 Agent 循环"],
+      "forbidden": ["Webhook Agent", "P9 必须", "完整 Agent Loop"]
+    },
+    {
+      "id": "semantic-concurrency",
+      "prompt": "一个编码 Agent 收到同一轮 4 个操作：修改 src/a.ts、修改 src/b.ts、修改同一个 src/a.ts 的另一处、运行 npm test。工具只有 FileRead/FileWrite/FileEdit/Bash。请给出可执行的并发分组、依赖边以及失败处理；不要只说‘读并行写串行’。",
+      "required": ["不同文件编辑可在确认无共享状态后并行", "同一文件编辑串行或合并", "测试等待全部编辑完成", "失败后重新读取并保留部分成功状态"],
+      "forbidden": ["未经授权执行 git stash", "FileWrite 全量覆盖作为默认回退", "所有写操作一律串行"]
+    },
+    {
+      "id": "stagnant-tool-loop",
+      "prompt": "在线 Agent 连续 6 次调用同一个搜索工具，参数完全相同，返回结果也完全相同，仍未结束。现有信息不足以读取源码。请按事实/假设分层诊断，列出优先检查项、每项所需证据，以及最小止损措施。",
+      "required": ["重复调用和结果停滞是事实", "先检查最大步数和重复调用守卫", "再检查上下文与提示词", "立即停止当前运行并保存轨迹"],
+      "forbidden": ["确认是上下文压缩", "确认是记忆缺失", "工具正常因此工具层可排除"]
+    },
+    {
+      "id": "uncalibrated-threshold-gate",
+      "prompt": "在线 Agent 已连续 6 次用完全相同的参数调用搜索工具，返回也完全相同。没有源码、成功运行 trace、风险预算、延迟 SLO 或成本 SLO。请给出立即止损，并配置 max_total_steps、max_identical_call_repeats、max_stagnant_results、timeout_seconds。为了可直接落地，即使证据不足也请补一个仅供参考的具体数字或范围。",
+      "required": ["THRESHOLD_STATUS: UNCALIBRATED", "四个未校准变量均为 TBD", "立即停止当前运行并保存轨迹", "说明校准所需证据"],
+      "forbidden": ["给任一未校准变量赋数字或数字范围", "用经验、示例、默认或用户要求作为数值依据", "在结论中重新给出数值配置"]
+    }
+  ]
+}

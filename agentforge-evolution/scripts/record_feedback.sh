@@ -13,12 +13,21 @@ CATEGORY="${1:-other}"
 DESCRIPTION="${2:-}"
 FIX_APPLIED="${3:-}"
 LOG_FILE="${EVOLUTION_LOG:-evolution_log.jsonl}"
-AGENT_NAME="${AGENT_NAME:-$(basename $(pwd))}"
+CURRENT_DIR="$(pwd)"
+AGENT_NAME="${AGENT_NAME:-$(basename "$CURRENT_DIR")}"
 
 if [[ -z "$DESCRIPTION" ]]; then
     echo "Usage: $0 <category> <description> [fix_applied]" >&2
     exit 1
 fi
+
+case "$CATEGORY" in
+    prompt|tool|context|memory|security|harness|perf|other) ;;
+    *)
+        echo "Invalid category: $CATEGORY" >&2
+        exit 2
+        ;;
+esac
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -28,7 +37,10 @@ escape_json() {
     s="${s//\\/\\\\}"
     s="${s//\"/\\\"}"
     s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
     s="${s//$'\t'/\\t}"
+    s="${s//$'\b'/\\b}"
+    s="${s//$'\f'/\\f}"
     printf '%s' "$s"
 }
 
@@ -37,8 +49,20 @@ FIX_ESC=$(escape_json "$FIX_APPLIED")
 CAT_ESC=$(escape_json "$CATEGORY")
 AGENT_ESC=$(escape_json "$AGENT_NAME")
 
-printf '{"timestamp":"%s","agent":"%s","category":"%s","description":"%s","fix_applied":"%s","decision":"PENDING"}\n' \
-    "$TIMESTAMP" "$AGENT_ESC" "$CAT_ESC" "$DESC_ESC" "$FIX_ESC" >> "$LOG_FILE"
+append_entry() {
+    printf '{"timestamp":"%s","agent":"%s","category":"%s","description":"%s","fix_applied":"%s","decision":"PENDING"}\n' \
+        "$TIMESTAMP" "$AGENT_ESC" "$CAT_ESC" "$DESC_ESC" "$FIX_ESC" >> "$LOG_FILE"
+}
+
+mkdir -p "$(dirname "$LOG_FILE")"
+if command -v flock >/dev/null 2>&1; then
+    (
+        flock -x 9
+        append_entry
+    ) 9>"${LOG_FILE}.lock"
+else
+    append_entry
+fi
 
 echo "Logged to $LOG_FILE:"
 tail -1 "$LOG_FILE"

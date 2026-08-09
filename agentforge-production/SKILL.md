@@ -9,15 +9,17 @@ triggers:
   - agent as a service
   - agent infrastructure
 metadata:
-  version: "1.1.0"
-  last_updated: "2026-04-12"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 ---
 
 # AgentForge Phase 9: Production Runtime
 
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
+
 > Previous: `/agentforge-ship` | Next: `/agentforge-autoplan` | Series entry: `/agentforge`
-> Source: Anthropic Managed Agents architecture — https://www.anthropic.com/engineering/managed-agents (verified 2026-04-11, published 2026-04-10), validated against first principles
+> Source: Anthropic Managed Agents architecture — https://www.anthropic.com/engineering/managed-agents (published 2026-04-08; re-verify current implementation details when needed)
 > Security foundations: `/agentforge-security` | Packaging: `/agentforge-ship`
 
 ## Core Distinction: Ship vs. Production
@@ -29,7 +31,7 @@ metadata:
 | Concerns | Packaging, CI/CD, versioning | Process management, fault recovery, scaling, observability |
 | Applies when | Always (every Agent ships somehow) | Only when Agent runs as a service (not CLI-only tools) |
 
-**Skip this Phase if**: Your Agent is a local CLI tool (Claude Code, Aider style) that users install and run themselves. CLI tools don't need production runtime — Phase 8 (Ship) is sufficient.
+**Mark this Phase N/A or light if** the system is a user-operated CLI, local cron, or platform-managed scheduled job and the application does not own a persistent runtime. Still record who owns retries, logs, credentials, and failure notification.
 
 **This Phase is mandatory if**: Your Agent runs as a service — HTTP API, background daemon, multi-user web service, or managed platform.
 
@@ -213,10 +215,10 @@ Agent sessions are expensive (LLM API calls). Scaling patterns must account for:
 | Sandbox sprawl (orphaned containers) | TTL on sandboxes + garbage collection sweep |
 | Cost per session unknown | Track tokens + sandbox compute per session; alert on outliers |
 
-## Current State (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
 1. **Managed Agent platforms emerging** — Anthropic (Managed Agents), OpenAI (Codex cloud), Google (Gemini agents) all launched hosted Agent platforms in Q1-Q2 2026. The "build vs. buy" decision for production runtime is now real.
-2. **Brain/Hands/Session pattern validated at scale** — Anthropic's Managed Agents architecture blog (published 2026-04-10, https://www.anthropic.com/engineering/managed-agents) documented verbatim: "p50 TTFT dropped roughly 60%" and "p95 dropped over 90%" from decoupling brain from containers + lazy sandbox provisioning. The pattern is production-proven, not theoretical.
+2. **Brain/Hands/Session pattern validated in one production architecture** — Anthropic reported roughly 60% lower p50 TTFT and over 90% lower p95 in its Managed Agents system after decoupling orchestration from containers and provisioning lazily. Treat this as strong case evidence, not a guaranteed effect size for another workload.
 3. **Container-as-cattle becoming standard** — Kubernetes-native Agent deployments treat sandbox containers as ephemeral workloads. State lives in event logs, not containers.
 4. **Credential isolation moving from best practice to requirement** — Multiple Agent-related credential theft incidents in Q1 2026 (prompt injection → .env exfiltration) pushed vault-backed proxy from "nice to have" to "mandatory for any Agent handling third-party tokens."
 
@@ -273,7 +275,7 @@ A health check that verifies "API returns 200" tells you nothing about whether Q
 1. **Premature decoupling** — Building Brain/Hands/Session split for a 1-user prototype. Over-engineering kills delivery speed. Start coupled; decouple when you hit the first scaling pain point.
 2. **Event log without size management** — Append-only logs grow unbounded. A 1000-turn session generates megabytes of events. Solution: implement event log retention policy (compress old events, archive to cold storage after session ends).
 3. **Observability without action** — Dashboards exist but no one looks at them. Solution: set alerts on 3 metrics only: error rate > threshold, cost per session > budget, p95 latency > SLA. Add more only when these are stable.
-4. **Sandbox TTL too long** — Orphaned sandboxes from crashed sessions consume resources indefinitely. Solution: sandboxes must have a TTL (max 1 hour without activity); garbage collector sweeps for orphans every 10 minutes.
+4. **Sandbox lifetime unbounded** — crashed sessions can leave orphaned resources. Solution: set inactivity and absolute TTLs from task-duration percentiles and recovery needs, then test garbage collection; do not assume one universal hour/interval.
 
 ## Further Reading
 

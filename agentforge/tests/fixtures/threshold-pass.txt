@@ -1,0 +1,9 @@
+Observed fact: the current run repeated the same call six times.
+
+THRESHOLD_STATUS: UNCALIBRATED
+max_total_steps: TBD
+max_identical_call_repeats: TBD
+max_stagnant_results: TBD
+timeout_seconds: TBD
+CALIBRATION_BASIS: successful traces, false-positive tolerance, action risk, latency SLO, and cost budget are required
+THRESHOLD_OUTPUT_END

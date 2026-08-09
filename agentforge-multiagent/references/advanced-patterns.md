@@ -95,7 +95,7 @@ Layer 3: Infrastructure (persistence + observability)
 3. **Evolution safety boundary** — Platform must have Circuit Breaker (N consecutive failures → stop auto-evolution) and Blast Radius limit (auto-modifiable scope ≤ X%)
 4. **Observability is a first-class citizen** — Platform debugging isn't about watching a single task, but about the evolution trajectory of the agent ecosystem. Must design Evolution Log from day one (reason + result for every agent behavior change)
 
-> Principles and safety boundaries for self-evolving platforms → `/agentforge-evolution` (Phase 10)
+> Principles and safety boundaries for controlled evolution → `/agentforge-evolution` (Phase 11)
 > Deep Zig implementation → `/selfevolving-agent-architecture`
 
 ---

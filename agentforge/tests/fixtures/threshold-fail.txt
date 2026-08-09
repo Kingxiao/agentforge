@@ -1,0 +1,7 @@
+THRESHOLD_STATUS: UNCALIBRATED
+max_total_steps: 20
+max_identical_call_repeats: 2
+max_stagnant_results: TBD
+timeout_seconds: 300
+CALIBRATION_BASIS: successful traces are unavailable
+THRESHOLD_OUTPUT_END

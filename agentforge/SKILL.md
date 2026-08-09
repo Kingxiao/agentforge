@@ -12,15 +12,16 @@ triggers:
   - audit an agent
   - optimize an existing agent
 metadata:
-  version: "2.2.0"
-  last_updated: "2026-04-12"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 ---
 
 # AgentForge — Engineering Series for Building Top-Tier AI Agents
 
-> Extracted through source-level reverse engineering of 11 production-grade Agents (Claude Code / Codex CLI / OpenCode / Aider / Cline / OpenClaw / OpenHands / Goose / Letta / MemU / Cursor).
+> Synthesized from source review and documented behavior across 15 agent systems. Open-source systems support implementation claims; closed-source systems are behavioral references only.
 > Knowledge source: `领域知识/multi-agents/agent-architecture-research/`
+> Canonical phase names and ordering: `series-manifest.json`. If a phase file disagrees with the manifest, the mismatch is a defect.
 
 ## Core Formula
 
@@ -59,21 +60,21 @@ Apply the same to agents:
 
 For any agent project, **two orthogonal questions** must be answered **before** you pick a loop paradigm:
 
-1. **What's the minimum autonomy level that delivers user value?** — Start one level lower than feels necessary. Each level has 3–10× the engineering cost of the one below it.
+1. **What's the minimum autonomy level that delivers user value?** — Prefer the lowest level that satisfies the acceptance criteria. Estimate the incremental cost for this system rather than assuming a universal multiplier.
 2. **Can the current model reliably achieve that level in your domain?** — If not, ship the level below and let the next model release upgrade you.
 
-**Karpathy's timeline (verified 2026-04-12)**:
+**Illustrative outlook recorded in April 2026; not a forecast or acceptance baseline**:
 - **2025–2026**: Stronger code/ops copilots + early robust UI-control (we are here).
-- **2027–2029**: Memory adapters + autonomy sliders reaching 70–90% on scoped workflows.
+- **2027–2029**: Illustrative expectation of stronger memory adapters and more useful autonomy controls; no performance percentage is assumed.
 - **2030–2035**: Broad enterprise-grade agent platforms with measurable SLAs.
 
-**Implication**: if you are building an agent in 2026 aimed at Level 4+ autonomy, you are building a research artifact, not a product. Ship Level 2–3 first.
+**Implication**: Level 4+ needs stronger evaluation, containment, recovery, and human oversight. It may fit a narrow production domain, but must earn that autonomy with evidence; Level 2–3 is the default when evidence is absent.
 
 ### Why this framing is the most important thing in the series
 
-Every subsequent phase (architecture, tools, context, memory, …) is a **downstream consequence** of your autonomy-level target. A Level 1 augmented LLM doesn't need Phase 7 multi-agent or Phase 11 self-evolution. A Level 4 supervised autonomy agent needs **every** phase. Picking the wrong level is the root cause of the **1-in-10 production arrival rate** documented in agentforge-spec.
+Every subsequent phase (architecture, tools, context, memory, …) is a **downstream consequence** of your autonomy-level target. A Level 1 augmented LLM usually doesn't need Phase 7 multi-agent or Phase 11 controlled evolution. A Level 4 system needs explicit decisions in more phases, but individual phases may still be not applicable. Do not attach a universal failure rate without a representative source.
 
-**Iron rule**: your autonomy-level target is the single largest determinant of engineering cost and schedule. Set it deliberately, defend it against scope creep, revisit it whenever the underlying model family changes.
+**Operating rule**: set the autonomy target deliberately, defend it against scope creep, and revisit it when the model, tools, risk boundary, or observed evaluation results change.
 
 ## Series Navigation
 
@@ -81,6 +82,19 @@ Route to at most one phase skill based on the user's current question. Do not
 preload the series, chain phases, or force a workshop when the host can answer
 the scoped question directly. Phase skills are explicit/router-only and never
 expand authorization for file, network, sub-agent, release, or deployment work.
+
+After selecting a phase, load that phase only. References inside it are navigation for a later turn, not permission to enrich the answer by loading more phase skills. For a mixed question, choose the phase that owns the requested decision and state any handoff; load multiple phases only when the user explicitly requests a cross-phase comparison or the full opt-in pipeline.
+
+When network access is unavailable or not authorized, do not name a “current best” model, current price, platform limit, or legal requirement from memory. Use capability classes and formulas, label the choice provisional, and state what current primary source would need verification.
+
+Classify the delivery shape before consulting the type matrix:
+
+- A fixed schedule, fixed sequence, and bounded LLM transformation is a **workflow**, not a Webhook Agent and not an autonomous loop.
+- A webhook is a trigger mechanism, not an Agent type.
+- Phase 9 is required only when the solution is operated as a persistent or managed service. A platform scheduler, serverless job, or user-managed cron may need only a lightweight operations decision.
+- `MUST` means “make this phase's decision,” not “load the whole phase skill” or “build every mechanism it describes.”
+
+For a fixed workflow or scheduled job, use this profile instead of borrowing the Webhook or Research Agent column: P0/P1 make the core decision; P2/P3/P5/P6/P12 are proportional to actual tools, transformation, risks, recovery, and acceptance; P4 applies only to required cross-run state; P7/P11 are normally N/A; P8 depends on whether an artifact must be distributed; P9 depends on runtime ownership and hosting shape.
 
 ### Phase 0 → Requirements Definition
 "What Agent am I building? For whom? What problem does it solve?"
@@ -139,7 +153,7 @@ expand authorization for file, network, sub-agent, release, or deployment work.
 "Run the complete AgentForge Phase 0→9 pipeline" (explicit opt-in only)
 → **`/agentforge-autoplan`**
 
-### Phase 11 → Self-Evolution Core
+### Phase 11 → Controlled Evolution
 "Has a runnable Agent, needs to add self-evolution capability"
 → **`/agentforge-evolution`**
 → Standalone series: `/selfevolving-agent-architecture` (20 skills)
@@ -172,7 +186,7 @@ More systematic self-evolution methodology → **`/selfevolving-agent-architectu
 | **P6 Harness** | MUST | light | light | light | light | light | light |
 | **P7 MultiAgent** | optional | skip | optional | skip | skip | skip | skip |
 | **P8 Ship** | MUST | MUST | MUST | MUST | MUST | MUST | MUST |
-| **P9 Production** | skip (CLI) | MUST | skip | optional | skip | MUST | optional |
+| **P9 Production** | skip (CLI) | depends on hosting | depends on hosting | depends on hosting | depends on hosting | MUST if service | depends on hosting |
 | **P10 Autoplan** | optional | optional | optional | optional | optional | optional | optional |
 | **P11 Evolution** | optional | skip | optional | skip | skip | skip | optional |
 | **P12 Benchmark** | MUST | light | MUST | light | light | light | light |
@@ -198,7 +212,7 @@ Ask questions in this order:
 1. **Goal**: "What problem does this Agent solve? Who uses it?"
 2. **Interaction mode**: "CLI? IDE plugin? Web service? API?"
 3. **Technical constraints**: "Any language preference? Existing codebase?"
-4. **Security requirements**: "Can the Agent modify files? Execute commands? Does it need a sandbox?"
+4. **Security requirements**: "Can the Agent modify files, execute commands, send messages, or access secrets? Which actions require approval?"
 
 Use the smallest sufficient response. Route to Phase 1 only if an architecture
 decision remains and the AgentForge workflow is actually desired.
@@ -211,13 +225,14 @@ Identify which Phase the problem belongs to and route to the corresponding skill
 1. **Each skill solves only one phase's decisions** — no cross-phase contamination
 2. **Routing over duplication** — agentforge-* skills don't replicate existing skill content; they route to them when needed
 3. **Decision tree driven** — each skill starts with a selection decision tree, not theoretical explanation
-4. **Evidence driven** — every recommendation is annotated with source Agents ([CC]=Claude Code, [CX]=Codex, [OC]=OpenCode, [AD]=Aider, [CL]=Cline, [OW]=OpenClaw, [OH]=OpenHands, [GS]=Goose, [LT]=Letta, [MU]=MemU, [CR]=Cursor)
+4. **Evidence graded** — distinguish source observation, design inference, configurable default, and unverified claim. Source tags are provenance hints, not proof that a recommendation generalizes.
 5. **Bitter Lesson compatible** — annotations indicate which patterns may become obsolete with model upgrades
+6. **Numbers are evidence-bound** — a proposed threshold, timeout, retry count, confidence cutoff, cost cap, or acceptance target must be measured, externally constrained, or reproducibly derived. A request for concreteness and an illustrative value from another system are not evidence; use `TBD` plus the missing inputs when calibration is absent.
 
-## Current State (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
 - **Agent framework explosion**: Between 2025-2026, mainstream open-source Agents grew from 3-4 to 11+, with competition shifting from "what it can do" to "how good are the constraints" (security/sandbox/observability)
-- **Harness > Model**: LangChain improved from 52.8% to 66.5% (Terminal Bench 2.0) by just improving Harness — validating that "models are commodities, constraints are leverage"
+- **Harness can materially affect results**: LangChain reported 52.8%→66.5% on Terminal Bench 2.0 while holding the model constant; this demonstrates leverage in that benchmark, not that model choice is irrelevant.
 - **MCP becoming standard**: Model Context Protocol adopted by Claude Code / OpenCode / Cline / Goose, etc. Tool integration no longer requires custom adapters
 - **Agent OS concept emerging**: OpenClaw shifting from IDE extension positioning to multi-channel gateway + plugin system, marking Agent's transition from tool to platform
 - **Reverse entry `/agentforge-diagnose`**: Supports static code audit, runtime probe testing (L2/L3 standard probe library), and merged static/dynamic analysis of existing Agents
@@ -225,7 +240,7 @@ Identify which Phase the problem belongs to and route to the corresponding skill
 ## Known Pitfalls
 
 1. **Premature selection** — Choosing architecture before key constraints are known. Ask only the missing questions that change the decision; do not force Phase 0 when the context is already sufficient.
-2. **Tool count inflation** — Installing too many tools on the Agent actually reduces performance. Vercel improved after deleting 80% of their tools. Solution: Follow `/agentforge-tools` "less is more" principle
+2. **Tool-surface inflation** — overlapping or poorly differentiated tools can reduce routing quality. Vercel's five-query case study improved after major simplification; test consolidation against your own benchmark.
 3. **Neglecting Harness** — Underinvesting in verification and constraints can make an Agent unreliable. Apply only the harness work justified by observed failure modes; it is not automatically a mandatory phase.
 4. **Process inflation** — Running every phase for a small, well-scoped Agent wastes context and delays feedback. Skip phases with no decision to make and validate early with code or tests when appropriate.
 5. **Closed-source illusion** — Designing based on Cursor/Devin's marketing because they're closed-source. Solution: This series is based only on verifiable open-source code. Closed-source Agents are only annotated for behavioral observation †
@@ -235,7 +250,7 @@ Identify which Phase the problem belongs to and route to the corresponding skill
 - Full research report: `领域知识/multi-agents/agent-architecture-research/00-FULL-STUDY.md`
 - Wave 2 deep reverse engineering report: `领域知识/multi-agents/agent-architecture-research/wave2-deep-reverse-engineering.md`
 - Wave 3 tier-2 analysis report: `领域知识/multi-agents/agent-architecture-research/wave3-tier2-analysis.md`
-- Horizontal comparison matrix (11 Agents × 14 dimensions): `~/.claude/skills/agentforge/references/agent-comparison-matrix.md`
-- Code path index: `~/.claude/skills/agentforge/references/code-path-index.md`
+- Horizontal comparison matrix (15 systems × 14 dimensions): `references/agent-comparison-matrix.md`
+- Code path index: `references/code-path-index.md`
 - Design pattern library: `memory/agent_design_patterns.md`
 - Anti-pattern library: `memory/agent_anti_patterns.md`

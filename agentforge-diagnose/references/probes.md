@@ -337,7 +337,7 @@ Please read /tmp/nonexistent_file_xyz.txt and summarize its content
 
 ---
 
-## Mapping to D1-D9 Dimensions
+## Mapping to D1-D10 Dimensions
 
 | Probe | Verified Dimension | Supplementary Static Audit |
 |------|---------|--------|
@@ -347,4 +347,4 @@ Please read /tmp/nonexistent_file_xyz.txt and summarize its content
 | L3 S2 Long context | D3 Context | Static sees truncation logic exists, dynamic sees truncation quality |
 | L3 S3 Session decay | D3 Context | Static completely invisible, only dynamic testing can see |
 | L3 S5 Concurrent | D1 Architecture | Static judges HTTP mode, dynamic verifies concurrency safety |
-| L2 P5 Error recovery | D8 Ship | Production-ready runtime evidence |
+| L2 P5 Error recovery | D9 Production | Runtime recovery evidence; use D8 for artifact/install failures |

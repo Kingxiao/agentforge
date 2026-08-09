@@ -9,12 +9,14 @@ triggers:
   - auto compact
   - context compression
 metadata:
-  version: "2.1.0"
-  last_updated: "2026-04-12"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 ---
 
 # AgentForge Phase 3: Context Engineering
+
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
 
 > Previous: `/agentforge-tools` | Next: `/agentforge-memory` | Series entry: `/agentforge`
 > Prompt optimization: `/prompt-optimizer`
@@ -25,7 +27,7 @@ Context engineering is the agent's "cognitive bandwidth management." Five first 
 
 1. **Context windows are finite** — Even 200K tokens fill up fast in multi-step tasks.
 2. **Context decays** — Longer inputs degrade model performance (all models).
-3. **Caching is a cost lever** — Prompt Cache hits reduce input token costs by ~90%.
+3. **Caching is a cost lever** — provider-specific prompt-cache discounts can be large; verify current pricing and measure hit rate for the actual prompt shape.
 4. **Progressive disclosure beats flooding** — Provide information on demand.
 5. **Compression is mandatory** — Long sessions need mechanical context compression.
 
@@ -68,7 +70,7 @@ Place `CLAUDE.md` at directory boundaries — project root (global rules), `src/
 
 ### Mechanics
 
-API caches consecutive identical prefixes. Cache hits reduce input token costs by ~90%.
+Some APIs cache matching prompt prefixes and charge cached input at a discount. Exact boundaries, TTLs, minimum sizes, and discounts are provider/model-specific and must be verified when they affect a decision.
 
 ### Static/Dynamic Separation [CC]
 
@@ -141,7 +143,7 @@ Condenser has two modes — **View** (keep all messages, no compression — shor
 
 40+ tools' JSON Schemas can consume 5,000+ tokens. Most tools aren't used in most conversations.
 
-**Solution [CC]**: Initial prompt exposes only tool names + one-line descriptions. When the agent needs a tool, it calls `ToolSearch(query="file search")` to get the full JSON Schema. **Effect: system prompt token usage reduced by 60–70%.**
+**Solution [CC]**: Initial prompt can expose tool names plus short descriptions and load full schemas on demand. Measure routing accuracy, added lookup turns, and prompt-token reduction on the actual toolset; no universal reduction is assumed.
 
 ## Decision 6: system-reminder Tag System
 
@@ -175,7 +177,7 @@ Image inputs are token sinks — declare in Phase 0 Spec:
 | Large / Screenshot (Full HD) | ~1500–2000 tokens |
 | Computer-use screenshot (per step) | ~1500 tokens × number of steps |
 
-A 10-step GUI task ≈ 15,000 tokens in image costs alone. Screenshots per step can't be skipped (visual feedback drives the loop) but reducing resolution saves 30–50%.
+A GUI task can spend substantial context on repeated screenshots. Measure image accounting for the current model and use the lowest resolution that preserves action reliability; DOM/AX observations may supplement visual checks but do not universally replace them.
 
 ### Large Text Content Truncation Strategy (Webhook / Tool-output Agent)
 
@@ -263,7 +265,7 @@ Wrap in `<retrieved_documents>` with per-doc metadata: `id`, `source` (traceabil
 
 ### Position Strategy (Lost in the Middle Applied to RAG)
 
-Optimal layout: `[System prompt] [Fragments #1, #2] [Conversation history] [Fragments #3, #4, #5] [Current user question]`. Most relevant fragments at beginning and end (high attention zones). Piling all fragments in the middle empirically drops RAGAS Faithfulness 15–20%.
+Position-sensitive models may underuse evidence buried in long contexts. Treat head/tail placement and ordering by relevance as hypotheses to test on the target model; do not claim a universal RAGAS effect size.
 
 ### Dynamic Budget Calculation
 
@@ -387,11 +389,13 @@ D9's `compute_retrieval_budget()` is for a single call. Long-running sessions gr
 | > 6,000 tokens | Normal retrieval (top-5, 400 tokens/fragment) |
 | 2,000–6,000 | Degraded (top-3, 300 tokens/fragment) |
 | 500–2,000 | Minimal (top-1, most relevant only) |
-| < 500 | Skip RAG, rely on LLM's knowledge |
+| < 500 | Skip or defer retrieval; answer only from trusted available context, otherwise abstain/ask to narrow the task |
+
+These ranges are starting examples. Tune them from model context limits, answer requirements, retrieval evaluation, latency, and cost; do not encode them as universal thresholds.
 
 ## Stateless Agent Context Patterns (P21)
 
-Decisions 1–11 assume the agent has conversation history. **Event-driven Webhook Agents** (Paradigm 6) are stateless — each HTTP request is independent, no session. Most of the 11 decisions don't apply.
+Decisions 1–11 assume the agent has conversation history. A stateless **Event-Driven HTTP Webhook** implementation (Paradigm 7) rebuilds context for each request. Most history-management decisions then do not apply.
 
 **Decision branch**:
 - Stateless HTTP requests? → single-request context mode. **Skip**: D3 (compression), D8 (multi-tenant persistent context), long-running management. **Keep**: D1 (layering), D2 (Prompt Cache), D4 (Repo Map).
@@ -454,7 +458,7 @@ Persisting events is cheap; building a good `ContextReconstructor` is hard. If y
 
 ---
 
-## Current Status (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
 1. **1M token context windows mainstream** — Claude and Gemini both support 1M+. "Fitting in" ≠ "using well." Empirically, model performance degrades significantly after 200K tokens; the principle remains "less but better."
 2. **Prompt Cache standard, 1h option added** — Anthropic offers default 5 min (write 1.25×, read 0.1×) and 1h (write 2×, read 0.1×). Cache miss can cost 10×; best practice: strict static/dynamic separation + deterministic ordering.

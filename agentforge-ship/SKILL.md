@@ -9,14 +9,16 @@ triggers:
   - ship agent
   - agent packaging
 metadata:
-  version: "2.0.0"
-  last_updated: "2026-04-06"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 ---
 
 # AgentForge Phase 8: Packaging & Release
 
-> Previous: `/agentforge-multiagent` | Next: `/agentforge-autoplan` | Series entry: `/agentforge`
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
+
+> Previous: `/agentforge-multiagent` | Next: `/agentforge-production` | Series entry: `/agentforge`
 > Cloud deployment: `/cloud-deployment` | Rust deployment: `/deployment-rust` | Deployment verification: `/deploy-verifier`
 
 ## Core Concept
@@ -214,7 +216,7 @@ Incoming (Slack → Agent)
 Development/intranet (no public HTTPS)
     → Socket Mode (WebSocket long connection, Slack pushes messages proactively)
     → Advantage: No public port exposure needed
-    → Disadvantage: Unstable connections, not suitable for production
+    → Trade-off: Requires a resident connection and reconnect handling; it can be production-appropriate when that operating model is intentional
 
 Production (has public HTTPS endpoint)
     → HTTP Event API (Slack POSTs to your HTTPS endpoint)
@@ -222,13 +224,7 @@ Production (has public HTTPS endpoint)
     → Required: HTTPS (Slack doesn't accept HTTP)
 ```
 
-**2025 Slack API Breaking Changes (check before release)**:
-
-| Change | Deadline | Impact |
-|--------|----------|--------|
-| Legacy Bot Token deprecation | 2025-03-31 | All `xoxb-` old-format tokens失效, must migrate to OAuth App |
-| `files.upload` API deprecation | 2025-11-12 | Use `files.getUploadURLExternal` + `files.completeUploadExternal` |
-| Non-Marketplace App rate limit tightening | 2025 all year | Small app concurrent request limits reduced; batch messaging needs retry logic |
+**Platform freshness gate**: before release, verify current Slack authentication, event acknowledgement, rate limits, file-upload flow, scopes, and app-distribution rules in primary Slack documentation. Historical deadlines belong in migration notes, not permanent design guidance.
 
 **Production deployment configuration (Slack Bolt TypeScript/Python)**:
 
@@ -292,39 +288,16 @@ Discord has no HTTP Webhook mode — always uses WebSocket Gateway
 
 ## Decision 3: CI/CD Strategy
 
-### Minimum Viable CI (GitHub Actions)
+### Minimum Viable CI Contract
 
-```yaml
-# .github/workflows/release.yml
-name: Release
-on:
-  push:
-    tags: ["v*"]
+A generated workflow is incomplete until it contains real build/test commands and reviewed immutable action references. At minimum:
 
-jobs:
-  build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build
-        run: # Language-specific build command
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-
-  publish:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/*
-```
+1. Pull requests run lint/type checks, deterministic unit/integration tests, and the packaging build.
+2. Release jobs depend on those checks, build only the operating systems actually supported, and verify artifact contents.
+3. Third-party Actions are pinned to reviewed full commit SHAs; record the human-readable tag in a comment and use an authorized update process.
+4. Publishing uses least-privilege short-lived credentials or platform trusted publishing where available.
+5. The release job emits checksums/provenance as required and exercises installation plus a smoke test from the produced artifact.
+6. Post-release verification and rollback ownership are explicit when deployment is in scope.
 
 ### CI/CD Tiering
 
@@ -398,7 +371,7 @@ MAJOR.MINOR.PATCH
 | **Web** | Docker + Node | Docker + musl | Docker + scratch | Docker + uv |
 | **IDE** | vsce | N/A | N/A | N/A |
 
-## Current State (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
 1. **CLI Agent becoming the dominant distribution form** — Claude Code, Codex CLI, OpenCode and other leading Agents all choose CLI as primary distribution. npm/cargo install provides better installation experience than Docker/Web deployment. CLI-first is becoming the de facto standard for Agent distribution.
 2. **Single-binary distribution trend accelerating** — Rust (cargo-dist) and Go (goreleaser) zero-dependency single-binary distribution is replacing Python/Node dependency chain hell. Aider's installation complaint rate is 10x+ vs Claude Code's. Python Agent's distribution disadvantage is becoming increasingly apparent.
@@ -454,6 +427,6 @@ MAJOR.MINOR.PATCH
 
 ## Next Steps
 
-Release process ready → **`/agentforge-autoplan`** (Phase 9: Auto-orchestrate full workflow)
+Release process ready → **`/agentforge-production`** (Phase 9) when the artifact is operated as a service; otherwise proceed to acceptance with `/agentforge-benchmark` or stop.
 Need cloud deployment details → **`/cloud-deployment`**
 Need post-deploy verification → **`/deploy-verifier`**

@@ -9,12 +9,14 @@ triggers:
   - agent loop design
   - agent architecture
 metadata:
-  version: "2.1.0"
-  last_updated: "2026-04-12"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 ---
 
 # AgentForge Phase 1: Architecture Selection
+
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
 
 > Series entry: `/agentforge` | Deep cognitive theory: `/cognitive-architecture`
 > Knowledge source: reverse engineering 11 production-grade Agent codebases (2026-04-06 v2)
@@ -39,7 +41,7 @@ Use **deployment form** as the primary axis, not UI form (a Slack Bot has no int
   - Fast prototype + Python ecosystem (Whisper / Pandas / LangChain) → **Reflection Chain (Python)**. Representative: Aider.
 - **Batch processing / data pipeline / research task** (non-interactive, Python execution) — state must persist across steps + Python ecosystem + code as action language → **Code Generation Loop (Python)**. Representative: smolagents. 6-tier executor isolation; `LocalPythonExecutor` NOT for untrusted code.
 - **HTTP API service (called by other systems)** → PubSub Event Loop (Go, high concurrency) **or** Async Generator (TypeScript, rich tools).
-- **Real-time Voice / low latency (< 500 ms)** → **Realtime/Voice** (seventh paradigm, WebSocket — see below).
+- **Real-time Voice / low latency (< 500 ms)** → **Realtime/Voice** (eighth documented paradigm, WebSocket — see below).
 
 **Common misrouting corrections**:
 - "I'm building a Slack Bot" → first check if multi-channel is needed: yes → Plugin Gateway; no → PubSub or Async Generator. Don't force Async Generator (Slack doesn't need streaming UI).
@@ -197,11 +199,11 @@ When building your own Provider abstraction, you can optionally reuse aggregatio
 
 **Reuse aggregation layer** when: prototype stage, need rapid integration of 5+ Providers; Python Agent (LiteLLM is the de facto standard); no need to customize streaming / token billing details.
 
-**Security warning (supply chain)**: LiteLLM suffered a PyPI poisoning incident in March 2026 (credential theft + K8s lateral movement backdoor). Production must lock versions + hash verification. → `/agentforge-security` supply-chain section.
+**Security warning (supply chain)**: model aggregation packages sit on a credential path. Pin reviewed versions, verify provenance/integrity where the ecosystem supports it, minimize runtime privileges, and monitor upstream advisories. → `/agentforge-security`.
 
 ## Decision 3: Provider Abstraction
 
-All production-grade Agents implement a Provider interface to support multiple models. Leanest design [OC]:
+Introduce a provider boundary when the system needs vendor substitution, testing seams, or multiple backends. A single-provider prototype can keep one small adapter without implementing speculative multi-provider features. Example interface [OC]:
 
 ```
 Provider {
@@ -234,9 +236,9 @@ Converging design across all Agents:
 
 **Token billing must be tracked**: `inputTokens + cacheCreationTokens + cacheReadTokens + outputTokens → totalCost`.
 
-## Paradigm 7: Event-Driven HTTP Webhook (Sixth Paradigm)
+## Paradigm 7: Event-Driven HTTP Webhook
 
-The current paradigms 1–6 are all **active loop** — Agent drives the loop proactively. But the most common production scenario is **passive trigger**: platform sends HTTP POST, Agent processes once and exits, no persistent state.
+This paradigm is a **passive HTTP trigger**: a platform sends an HTTP request, the service processes the event, acknowledges it, and may enqueue bounded work. A webhook describes ingress and delivery semantics; it does not by itself imply an autonomous Agent loop.
 
 Flow: trigger source (Slack/GitHub/Stripe) → HTTP POST webhook → Agent service (FastAPI/Express) → signature verification (Layer 2-0, see security Phase) → idempotency check (dedupe by `event_id`) → one-shot LLM inference + tool calls → return 200 OK (timeout varies by platform).
 
@@ -258,14 +260,16 @@ Flow: trigger source (Slack/GitHub/Stripe) → HTTP POST webhook → Agent servi
 | Timeout constraint | Relaxed (user waiting) | Strict (Slack 3s, GitHub 15s, Stripe 30s) |
 
 **Use when**:
-- Agent triggered by external events (webhook / cron / message queue)? Yes → need conversation state across events? **No** → this paradigm. **Yes** → this paradigm + state storage (Redis/DB) + explicit history loading.
+- Trigger is an inbound HTTP webhook? Yes → use this paradigm, then decide whether state is needed across events.
+- Trigger is cron or a scheduler? Use a scheduled workflow/job; do not call it a webhook.
+- Trigger is a message queue? Use an event consumer/worker and apply the queue's acknowledgement and idempotency semantics.
 - Otherwise (user interaction driven) → paradigms 1–6.
 
 **GitHub PR Review shortcut (verified 2026-04-08)**: if the target is GitHub PR Review, **don't build your own webhook server** — use the official Action: `uses: anthropics/claude-code-action@v1` (production: pin to commit hash). Least privilege: `contents: read` + `pull-requests: write`. Cost: ~$0.05 for a 400-line diff (Claude Sonnet 4.6); team of 50 PRs/month < $5. Saves 1–2 days vs self-built FastAPI webhook.
 
 **Pin all Actions to commit hash** (prevent supply chain attacks): `./scripts/pin-action.sh .github/workflows/` (script in `agentforge-architecture/scripts/`, depends on `gh` CLI, skips references already at hash).
 
-## Paradigm 8: Realtime / Voice (Seventh Paradigm)
+## Paradigm 8: Realtime / Voice
 
 All previous paradigms are based on the **request-response** model. Voice/Realtime Agents diverge here, with two implementation paths:
 
@@ -285,22 +289,15 @@ All previous paradigms are based on the **request-response** model. Voice/Realti
 
 Currently supported: OpenAI Realtime API (`gpt-realtime`), Gemini Live API.
 
-**Realtime API cost model (verified 2026-04-12, source: EVIDENCE.md #10)**:
-- OpenAI **gpt-realtime** canonical pricing: **$32 / 1M audio input tokens**, **$64 / 1M audio output tokens**, **$0.40 / 1M cached input tokens** (~90% discount for cached context).
-- Token rate (from OpenAI docs): 1 user token = 100 ms audio (10 tok/sec); 1 assistant token = 50 ms audio (20 tok/sec).
-- **Derived per-minute cost**: input ≈ 600 tok/min × $32/1M ≈ **$0.019/min**; output ≈ 1200 tok/min × $64/1M ≈ **$0.077/min**.
-  > **Caution**: prior documentation quoted $0.06/min in + $0.24/min out. Those were the **gpt-4o-realtime-preview** rates (~3× higher than current gpt-realtime). Don't reuse old numbers.
-- **Monthly example**: 10 calls/day × 2 min × 30 = 600 min/month × ($0.019 + $0.077) ≈ **~$58/month** (budget-tier demo).
-- Path A equivalent: 600 min × (Whisper $0.006 + text ~$0.003) ≈ **~$5/month** — ~12× cheaper, still the default for non-realtime-critical scenarios.
-- Re-verify quarterly — pricing pages change frequently.
+**Realtime cost model**: provider prices and audio accounting are changeable facts. Before a cost decision, retrieve current primary pricing and compute `input_audio_units × input_rate + output_audio_units × output_rate + text/tool/cache charges`. Record assumptions, expected speaking/listening ratio, concurrency, and a measured pilot. Compare against the ASR→text→TTS path on both cost and latency; do not reuse historical per-minute examples.
 
 **Additional architectural requirements for Path B**: independent WebSocket state machine (connect/disconnect/reconnect); concurrent conversation isolation (independent WebSocket session per user); interruption handling (cancelEvent + buffer flush); context window management completely different (no "single request" concept).
 
 **Decision**: unless there is a clear < 500 ms latency requirement, prioritize Path A — 10× lower implementation complexity.
 
-## Current State (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
-- **6-paradigm landscape**: Paradigm 6 (Code Generation Loop / smolagents) added April 2026 — Python code as action language with persistent executor state; distinct from Reflection Chain in that tools are Python callables, not prompt conventions.
+- **Eight documented paradigms plus “no Agent loop”**: the list is a design catalog, not an exhaustive taxonomy. Fixed DAGs should remain workflows rather than being forced into one of the loop paradigms.
 - **Rust Agents rising**: Codex CLI + Goose prove Rust can build full-featured Agents; no longer just "performance scenarios."
 - **Plugin Gateway solidified**: OpenClaw evolved from Cline fork to Agent OS; the Gateway/Channel/LLM three-layer has become its own distinct paradigm.
 - **Provider interface converging**: all Agents' Provider abstractions look increasingly similar; Send + Stream + Model three-method pattern is now the de facto standard.
@@ -309,16 +306,16 @@ Currently supported: OpenAI Realtime API (`gpt-realtime`), Gemini Live API.
 ## Common Pitfalls
 
 1. **Paradigm and language binding** — The decision tree treats paradigm and language as separate choices, but they're tightly coupled: Submission-Handler almost always means Rust, PubSub almost always means Go. Fix: choose paradigm first, then confirm language constraints; never reverse.
-2. **Premature Provider abstraction generalization** — Supporting 10 Providers from the start causes interface bloat. Fix: hardcode 1 Provider to start, abstract after confirming the interface. Reference OpenCode's 2-method interface.
+2. **Premature Provider abstraction generalization** — supporting many providers from the start causes interface bloat. Fix: isolate the current provider behind the smallest boundary required by tests and expected substitution; add capabilities only for a concrete second consumer.
 3. **Streaming and batch processing mixed** — Async Generator paradigm assumes all output is streamed, but tool execution results often arrive in one batch. Fix: distinguish between "streaming generation" and "completion event" yield types.
 4. **Ignoring loop detection** — Dive straight into coding after choosing a paradigm, forget to add infinite-loop protection. All production Agents have loop detection. Fix: plan loop detection during architecture phase, not as an afterthought; see `/agentforge-harness`.
 5. **Delayed token billing tracking** — Provider abstraction only handles Send/Stream, forgets to track token consumption. Cost overruns discovered only after going live. Fix: Provider interface must return usage information; track from day one.
 
 ## Architecture Checklist
 
-- [ ] Loop paradigm selected and constraints understood (consider paradigms 7/8 for Voice/Realtime scenarios)
+- [ ] Delivery shape selected: fixed workflow, or one of paradigms 1–8; constraints understood
 - [ ] Implementation language selected; TUI/SDK ecosystem meets needs
-- [ ] Provider abstraction interface designed (supports ≥ 2 Providers)
+- [ ] Provider boundary matches actual needs: one isolated adapter, or tested support for each required provider
 - [ ] `messages` type uses ContentBlock union (supports multi-modal extension; don't use plain string)
 - [ ] Event stream format determined (streaming or synchronous)
 - [ ] Token billing tracking plan determined (includes image/video token costs)
@@ -332,11 +329,11 @@ Currently supported: OpenAI Realtime API (`gpt-realtime`), Gemini Live API.
 |---|-----------|-------------|---------------|
 | A1 | Loop paradigm identifiable | Read entry file, find main loop structure | Can clearly determine paradigm (Blocking / Event / Async / Workflow / Webhook) |
 | A2 | Paradigm matches scenario | Confirm Agent type (Webhook/CLI/Service), cross-reference selection table | Paradigm doesn't conflict with type (e.g. Webhook Agent should not have blocking `while` loop) |
-| A3 | No God File | `find src -name "*.py" -o -name "*.ts" \| xargs wc -l \| sort -n \| tail -5` | All files < 500 lines |
+| A3 | Cohesive boundaries | Inspect largest/high-churn modules, dependency direction, and tests | Size and coupling do not make independent change or review unsafe; line count is only a navigation signal |
 | A4 | Single module responsibility | Check directory structure; loop/tools/prompt/memory independent | No "does everything" central file |
 | A5 | No hardcoded config | `grep -rn "api_key\s*=\s*['\"]" src/` | No bare keys, model IDs, or endpoints in source |
 
-**High-probability issues**: hardcoded API key (P0 security); single file > 800 lines (P1 maintenance); Webhook Agent using blocking `while True` loop (P0 performance).
+**High-risk issues to verify**: hardcoded credentials; unbounded loops; webhook handlers that cannot acknowledge within platform requirements; modules whose coupling repeatedly causes unsafe changes. File length alone does not establish severity.
 
 ## Next Steps
 

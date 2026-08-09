@@ -1,6 +1,6 @@
 # RAG / Knowledge Agent Security: Indirect Prompt Injection
 
-> OWASP LLM01:2025 — The top threat in RAG scenarios. Research data: 5 malicious documents can manipulate LLM output in 90% of cases; four-layer defense reduces attack success rate from 73.2% to 8.7% while maintaining 94.3% normal task performance.
+> OWASP LLM01:2025 区分直接与间接提示注入，并明确不存在万无一失的防护。以下措施属于纵深防御，必须用本系统的对抗样本验证，不宣称通用有效率。
 
 ## Threat Model
 

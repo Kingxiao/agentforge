@@ -7,12 +7,14 @@ triggers:
   - cross-session persistence
   - agent state persistence
 metadata:
-  version: "2.0.0"
-  last_updated: "2026-04-11"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 ---
 
 # AgentForge Phase 4: Memory System Selection
+
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
 
 > Previous: `/agentforge-context` | Next: `/agentforge-security` | Series entry: `/agentforge`
 > Deep theory: `/llm-agent-memory`, `/agent-episodic-memory`, `/agent-semantic-memory`
@@ -346,14 +348,14 @@ The three memory schools are all **LLM cognitive memory** — helping LLM rememb
 | Store classification rules | SQLite config table | Semantic memory vector store |
 | Remember what user said across N sessions | LLM episodic/semantic memory ✓ | Redis cache |
 
-## Current State (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
 1. **File Memory still optimal for CLI agents** — Claude Code's MEMORY.md pattern widely validated; simplicity + git-trackable nature irreplaceable for single-user CLI. KAIROS mode (append-only + `/dream`) being adopted by more projects.
 2. **Block Memory sinking to Agent OS layer** — Letta's Core/Archival/Recall three-tier architecture transitioning from application layer to standard Agent platform capability. Multiple agent frameworks building in similar structured memory CRUD interfaces.
-3. **Semantic Memory cost threshold plummeting** — High-quality embedding inference costs (Cohere embed v4, OpenAI text-embedding-3-large, verified: 2026-04-08) have dropped below $0.02/MTok, making hierarchical semantic memory accessible to individual developers.
+3. **Semantic Memory economics keep changing** — embedding, storage, reranking, and retrieval costs are often modest relative to generation, but operational complexity and evaluation remain. Verify current prices only when they affect the decision.
 4. **Memory security becomes new topic** — User preferences, behavioral patterns, project details in agent memory constitute privacy-sensitive data. GDPR/CCPA compliance requires "right to erasure" (delete all memories for a specific user on demand), which technically tensions with distributed semantic memory storage.
 5. **Cross-agent memory sharing protocols sprouting** — In multi-agent systems, some memory must be shared (project context, user preferences) while working memory stays isolated. Namespace + access-control protocols standardizing.
-6. **RAG + light fine-tuning hybrid becomes 2026 standard** — Customer service / knowledge base agents: pure RAG ~89% accuracy, pure FT ~91%, combined reaches 96%. Frequent knowledge updates (daily/weekly) → prioritize RAG ($500–2000/month vs FT retraining $20K+); domain tone/terminology → FT patch; multi-hop reasoning → Agentic RAG (with external verification hooks to prevent self-critique loops from amplifying hallucinations). Acceptance must include hallucination-rate sampling (see `/agentforge-benchmark`).
+6. **RAG and fine-tuning solve different failure modes** — use retrieval for changing factual knowledge and citations; consider fine-tuning for stable behavior, format, or domain language after measuring baseline failures. A hybrid can help, but no universal accuracy or cost advantage is assumed. Acceptance must include source-grounding checks (see `/agentforge-benchmark`).
 
 ## Known Pitfalls
 

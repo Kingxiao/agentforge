@@ -5,12 +5,18 @@
 set -euo pipefail
 
 SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-FEEDBACK_LOG="$SKILL_DIR/feedback.jsonl"
+SERIES_ENTRY_DIR="$(cd "$SKILL_DIR/../agentforge" && pwd)"
+FEEDBACK_LOG="${AGENTFORGE_FEEDBACK_LOG:-$SERIES_ENTRY_DIR/scripts/feedback.jsonl}"
 
 if [ ! -f "$FEEDBACK_LOG" ]; then
   echo "No feedback log found at $FEEDBACK_LOG"
   echo "The skill hasn't recorded any failures yet."
-  echo "Failures are logged when you run /harness-feedback"
+  echo "Create entries through an authorized feedback collector or append validated JSONL to the configured path."
+  exit 0
+fi
+
+if [ ! -s "$FEEDBACK_LOG" ]; then
+  echo "Feedback log exists but has no entries: $FEEDBACK_LOG"
   exit 0
 fi
 
@@ -34,5 +40,4 @@ else
 fi
 
 echo ""
-echo "To apply improvements, ask Claude Code:"
-echo "  'Read the feedback log and update the harness-engineering skill'"
+echo "Next step: review repeated evidence, propose a diff, run the relevant benchmark, and obtain authorization before updating the skill."

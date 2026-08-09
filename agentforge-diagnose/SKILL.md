@@ -7,10 +7,15 @@ description: >
   audit, optimization, repository review, or live testing requests.
 series: agentforge
 phase: diagnose
-version: 2.0
+metadata:
+  version: "3.0.0"
+  last_updated: "2026-08-08"
+  category: "agent-engineering"
 ---
 
 # agentforge-diagnose — Agent Diagnosis & Optimization
+
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
 
 > **Positioning**: This is agentforge series' "reverse entry point." New agents start from `/agentforge-spec`; existing agents start here.
 >
@@ -45,7 +50,7 @@ version: 2.0
 6. Read 3-5 core files (loop implementation, tool definitions, prompt files)
 7. Check key config files (.env.example / CLAUDE.md / Dockerfile / .github/workflows/)
 8. git log --since="90 days ago" --stat | head -50  # Recent evolution direction
-9. Score each item against 9-dimension checklist
+9. Score applicable items against the 10-dimension checklist; mark intentional absences N/A
 10. Output diagnosis report
 ```
 
@@ -58,7 +63,7 @@ version: 2.0
 1. Collect symptoms (use "Symptom → Root Cause mapping table" for quick candidate dimension location)
 2. If code path provided → Execute Mode A static audit (focus on candidate dimensions)
 3. If no code → Execute Mode C
-4. Output targeted diagnosis report (not full 9-dimension run, focus on high-probability root causes)
+4. Output targeted diagnosis report (not a full-dimension run; focus on evidence-supported candidates)
 ```
 
 ### Mode C: Pure Symptom Hypothesis Diagnosis (No Code Access)
@@ -67,11 +72,67 @@ version: 2.0
 
 **Execution protocol**:
 ```
-1. Use symptom → root cause mapping table, list 2-3 candidate dimensions
-2. Provide "verification steps" for each candidate (tell user what to check)
-3. Provide hypothetical fix suggestions
-4. Clearly label: This is hypothetical diagnosis, needs code confirmation
+1. Separate observed facts from inferences; do not convert a plausible mechanism into a confirmed cause.
+2. Rank checks by directness: runtime containment/termination → loop state transition → actual model payload → prompt/tool schema → broader memory architecture.
+3. For each candidate, state the evidence that would confirm or falsify it.
+4. Provide a reversible stop-loss measure separately from the eventual root-cause fix.
+5. Clearly label the result as hypothetical until runtime or code evidence confirms it.
+6. Rank inspection order by directness and risk, not by invented probability. Do not call a hypothesis “most likely” or assign high/medium confidence without comparative evidence or a documented prior.
+7. Mode C output must not contain probability-ranking phrases such as “most likely,” “high confidence,” or “most common.” Say “inspect first because it directly controls containment” instead.
+8. Same-session action history is loop/session state, not persistent memory. Inspect D4 Memory only when the symptom crosses sessions or the design explicitly delegates action tracking to memory.
+9. Apply the Mandatory Numeric Recommendation Gate below before emitting any repeat, step, timeout, retry, confidence, cost, or escalation threshold. An operator may terminate the currently observed stagnant run immediately; that containment action does not require inventing a future threshold.
+
+**Mode C stop-loss wording**: first terminate or pause the observed stagnant run and preserve its trace. For future runs, define `max_total_steps`, `max_identical_call_repeats`, `max_stagnant_results`, and `timeout_seconds` as variables. Set them from successful-trace distributions, false-positive tolerance, action risk, latency, and cost budget. When those inputs are absent, use the exact uncalibrated block below; do not insert example, default, starter, conservative, industry-practice, or reference numbers.
 ```
+
+### Mandatory Numeric Recommendation Gate
+
+This gate applies whenever a diagnosis proposes a numeric configuration value or range. It overrides the urge to make the answer look concrete or immediately deployable.
+
+A numeric recommendation is admissible only when its basis is visible in the current evidence:
+
+| Admissible basis | Requirement |
+|---|---|
+| Measured/calibrated | Runtime or evaluation data relevant to this Agent is present, and the answer shows how the value follows from it |
+| External constraint | The user or existing configuration supplies an explicit SLO, budget, platform limit, or risk boundary |
+| Derived | The answer shows a reproducible calculation using admissible inputs above |
+
+The following are **not** evidence: a request for a concrete value, general engineering experience, a value remembered from another framework, an illustrative example, or the number of repeats observed in the current failure. Observed incident counts may be reported as facts, but must not be silently converted into future settings.
+
+If any required threshold lacks an admissible basis, keep every unresolved value as `TBD`. Explain facts, hypotheses, immediate containment, missing inputs, and the non-numeric calibration procedure **before** the terminal block. Then output the following seven plain-text lines exactly as the final content of the answer; do not wrap them in a code fence:
+
+```text
+THRESHOLD_STATUS: UNCALIBRATED
+max_total_steps: TBD
+max_identical_call_repeats: TBD
+max_stagnant_results: TBD
+timeout_seconds: TBD
+CALIBRATION_BASIS: successful traces, false-positive tolerance, action risk, latency SLO, and cost budget are required
+THRESHOLD_OUTPUT_END
+```
+
+The terminal block is a hard stop. Do not add a code-fence delimiter, example, refusal explanation, calibration detail, summary, conclusion, or any other text after `THRESHOLD_OUTPUT_END`. If the user insists on a number without supplying evidence, state **before the block** that the requested value would be fabricated and keep `TBD`. Do not illustrate that refusal with a number, and do not create a separate “reference configuration” section.
+
+The pre-block calibration procedure must use named distributions and constraints only. Do not prescribe a sample count, percentile, multiplier, duration, retry count, margin, percentage, or range. Terms such as “upper bound of the successful distribution” are acceptable; expressions such as a named percentile or a numeric safety factor are not when uncalibrated.
+
+Use these calibration directions; do not improvise the inequality:
+
+| Variable | Non-numeric derivation rule |
+|---|---|
+| `max_total_steps` | Choose a boundary that preserves the accepted share of successful completion-step distribution, then tighten it only as required by action risk, latency SLO, or cost budget |
+| `max_identical_call_repeats` | Place the boundary above the accepted legitimate-repeat distribution and below the observed stagnant-repeat region when the two are separable |
+| `max_stagnant_results` | Place the boundary above accepted legitimate no-change intervals and below the observed no-progress region when separable |
+| `timeout_seconds` | Derive from the accepted successful-duration distribution, capped by the explicit latency SLO and cost budget |
+
+If successful and failure distributions overlap so that no scalar boundary satisfies the false-positive tolerance, keep the scalar value `TBD` and recommend a compound guard using call identity, result change, state progress, action risk, and elapsed budget. Do not “solve” overlap by inventing a compromise value.
+
+**Mandatory preflight before finalizing Mode C output**:
+
+1. Search the draft for every threshold variable and for words such as `default`, `reference`, `example`, `starter`, `conservative`, `recommended`, `默认`, `参考`, `示例`, `起始`, and `建议`.
+2. For each nearby numeric literal or range, identify its admissible basis in the answer.
+3. Preserve observed incident numbers only when explicitly labeled as facts.
+4. Replace every unsupported proposed value, range, percentile, multiplier, duration, and sample count with `TBD` or a named input. Negative examples containing numbers are still violations.
+5. Move the terminal block to the absolute end of the answer and delete everything after `THRESHOLD_OUTPUT_END`.
 
 ### Mode D: Live Testing (Run Agent + Probe Testing)
 
@@ -86,9 +147,10 @@ Step 1  Interaction type detection (~2 minutes)
         → Read README / Dockerfile / main entry, identify protocol type
         → Fill detection result into "Interaction adapter" for subsequent steps
 
-Step 2  Environment setup + Agent startup (~5 minutes)
-        → Install dependencies (pip install / npm install / cargo build)
-        → Configure .env (generate test config from .env.example)
+Step 2  Authorized environment setup + Agent startup (~5 minutes)
+        → Inspect documented setup and existing environment first
+        → Install dependencies only when the user authorized mutation and network access
+        → Never generate or populate .env secrets implicitly; use an approved test configuration
         → Start agent, wait for ready signal (port listening / process stable)
         → Record startup time + memory baseline
 
@@ -114,7 +176,7 @@ Step 6  Collect runtime metrics (ongoing)
         → Tool call success rate (if tools available)
 
 Step 7  Static/dynamic merged analysis
-        → Static audit scores (D1-D9 baseline)
+        → Static audit scores (D1-D10 baseline, with N/A dimensions)
         → Use runtime evidence to adjust scores:
             · Static-found issues → Did runtime actually trigger? (confirmed vs. false positive)
             · New issues found at runtime → What did static miss? (supplementary)
@@ -250,9 +312,9 @@ find . -path "*/test*" -name "*.py" -o -path "*/test*" -name "*.ts" | wc -l
 
 ---
 
-## 9-Dimension Audit Checklist
+## 10-Dimension Audit Checklist
 
-> Each dimension max 3 points, 0=severe problem, 1=obvious defect, 2=minor deficiency, 3=pass
+> Score only applicable checks. Per check: pass=1, partial/unknown=0.5, fail=0. Dimension score = `3 × earned / applicable checks`. If a capability is intentionally absent (for example no memory in a stateless workflow), mark the dimension N/A rather than penalizing it. Overall score = earned points divided by available points, normalized to 100. Never infer quality from file shape alone.
 
 ### D1. Architecture
 
@@ -262,7 +324,7 @@ Reference: `/agentforge-architecture` §Reverse Audit
 |---|--------|---------|---------|
 | A1 | Loop paradigm identifiable | Can determine which Loop paradigm from code | Cannot determine how agent operates |
 | A2 | Paradigm matches scenario | Webhook doesn't use blocking Loop; CLI Agent doesn't use Event-Driven | Paradigm selection clearly mismatched |
-| A3 | No God File | All files < 500 lines | Single file > 500 lines exists |
+| A3 | Cohesive module boundaries | Large files have a coherent owner and navigable sections; complexity is tested | Size or coupling makes independent change and review unsafe; line count alone is not a failure |
 | A4 | Single module responsibility | Loop / tools / prompt / memory each in separate files | Responsibilities mixed in same file |
 | A5 | No hardcoded config | model/endpoint/key all via env vars or config files | Hardcoded API key or model ID exists |
 
@@ -272,9 +334,9 @@ Reference: `/agentforge-tools` §Reverse Audit
 
 | # | Check | Pass Standard | Deduct If |
 |---|--------|---------|---------|
-| T1 | Tool count reasonable | ≤ 10 tools (complex agent ≤ 15) | > 15 (severe warning) |
+| T1 | Tool set is discriminable | Each exposed tool has a distinct purpose and routing evidence | Overlapping tools cause observed selection errors; count alone is not a failure |
 | T2 | Tool descriptions clear | Each tool has docstring/description explaining purpose | Tool has no description or vague description |
-| T3 | Supports concurrent execution | Promise.all / gather pattern exists | All tools serial, no concurrency |
+| T3 | Concurrency matches effects | Independent calls can run concurrently when useful; shared effects are ordered | Blind parallelism, or measured bottleneck from unjustified serialization |
 | T4 | Large data not passed directly | Binary/images/large files via file reference, not stuffed into LLM | Binary stuffed directly into messages |
 | T5 | Tool results have limits | Tool return results have truncation or max_length control | Tool may return unlimited-length results |
 
@@ -296,8 +358,8 @@ Reference: `/agentforge-memory` §Reverse Audit
 
 | # | Check | Pass Standard | Deduct If |
 |---|--------|---------|---------|
-| M1 | Memory paradigm identifiable | Can determine File/Block/Semantic approach | Cannot determine how agent persists state |
-| M2 | Cross-session persistence | File/DB writes exist, state not lost after restart | All state in memory, lost on restart |
+| M1 | Memory need and paradigm identifiable | Persistence is explicitly implemented or intentionally N/A | Required cross-session state has no owner or design |
+| M2 | Cross-session persistence | Required state survives restart; otherwise N/A is documented | Required state is lost after restart |
 | M3 | Memory capacity bounded | Memory file/DB has max_entries or TTL | Unlimited growth, no eviction mechanism |
 | M4 | Contamination protection | Deduplication/conflict checking when updating memory | Duplicate/contradictory info can be written to memory |
 | M5 | Deletion supported | Can delete specific memories (right to be forgotten / error correction) | Write-only, deletion not supported |
@@ -350,7 +412,19 @@ Reference: `/agentforge-ship` §Reverse Audit
 | SH4 | Rollback strategy | Version tags + rollback docs/scripts exist | Cannot quickly rollback to previous version |
 | SH5 | New member reproducible | Can complete clone→configure→start purely from README | Hidden dependencies or missing key docs |
 
-### D9. Benchmark
+### D9. Production Runtime
+
+Reference: `/agentforge-production` §Reverse Audit. Mark N/A for CLI-only or platform-managed jobs where the application does not own a persistent runtime.
+
+| # | Check | Pass Standard | Deduct If |
+|---|--------|---------|---------|
+| PR1 | Runtime ownership explicit | Service, scheduler, or local operator responsibilities are documented | No owner for startup, recovery, or incidents |
+| PR2 | Recovery tested | Applicable process/session recovery has a tested path | Crash loses required state or silently drops work |
+| PR3 | Credential isolation | Execution environment receives only required scoped credentials | Broad secrets exposed to tools or sandbox |
+| PR4 | Health and cost visibility | Applicable health, errors, latency, and usage are observable | Failures or spend cannot be detected |
+| PR5 | Resource cleanup | Temporary workers/sandboxes/jobs have bounded lifetime | Orphaned resources accumulate |
+
+### D10. Benchmark
 
 Reference: `/agentforge-benchmark` §Reverse Audit
 
@@ -371,29 +445,30 @@ Quick candidate dimension location, for Mode B/C.
 | Symptom | Primary Dimension | Alternate Dimension | Verification Direction |
 |------|---------|---------|---------|
 | Long session quality degrades / late responses go wrong | D3 Context | D4 Memory | Check for truncation strategy; check if memory contaminated |
-| Tool call success rate low (<80%) | D2 Tools | D3 Context | Check tool count; check tool description quality |
+| Tool call success rate below the product target | D2 Tools | D3 Context | Check failure distribution, tool discrimination, schemas, and context |
 | Cross-session state loss | D4 Memory | D6 Harness | Check for persistence writes; check progress mechanism |
 | Agent manipulated by external content | D5 Security | D3 Context | Check Prompt Injection protection |
-| Same bug appears repeatedly | D6 Harness | D9 Benchmark | Check for regression tests; check if CLAUDE.md rules in place |
-| Crashes immediately on launch | D8 Ship | D1 Architecture | Check deployment config; check env var injection |
+| Same bug appears repeatedly | D6 Harness | D10 Benchmark | Check for regression tests; check if harness rules trace to failures |
+| Crashes immediately on launch | D9 Production | D8 Ship | Check runtime configuration, artifact, and approved env injection |
 | Sub-agent infinite loop | D7 Multi-Agent | D1 Architecture | Check circular dependencies; check depth limit |
 | Architecture increasingly hard to maintain | D1 Architecture | D6 Harness | Check God File; check module boundaries |
 | Running cost too high | D2 Tools | D3 Context | Check tool concurrency; check Prompt Cache config |
 | Dangerous operations executed automatically | D5 Security | D6 Harness | Check approval gates; check permission boundaries |
 | Model response quality poor | D3 Context | D1 Architecture | Check prompt structure; check if wrong model selected |
-| All tests pass but fails on launch | D9 Benchmark | D8 Ship | Check for e2e tests; check deployment environment differences |
+| All tests pass but fails on launch | D10 Benchmark | D8 Ship | Check for e2e tests; check deployment environment differences |
+| Repeats identical tool call and result without progress | D1 Architecture | D6 Harness | First inspect max-step, duplicate-call and stagnant-result guards; then inspect loop transition, actual model payload, prompt and tool result schema |
 
 ---
 
 ## Priority Calculation
 
 ```
-Priority = Impact (H/M/L) × Fix Cost (1=low/2=medium/3=high)
+P0 = active safety/security/data-loss/external-impact incident, or missing containment for one
+P1 = high impact on core acceptance criteria; schedule by dependency and reversibility
+P2 = medium impact or high-value low-risk improvement
+P3 = low impact maintenance debt
 
-P0 = Impact H + Fix Cost low (high-value quick win, fix immediately)
-P1 = Impact H + Fix Cost medium/high (important but needs planning)
-P2 = Impact M + any cost (optimization improvement)
-P3 = Impact L (tech debt, schedule when possible)
+Fix cost is reported separately as small/medium/large. It does not increase severity. Within the same severity, prefer prerequisite fixes and low-risk containment before broad redesign.
 ```
 
 ---
@@ -415,7 +490,7 @@ P3 = Impact L (tech debt, schedule when possible)
 
 | Metric | Value | Baseline Reference | Rating |
 |------|------|---------|------|
-| L1 test suite pass rate | x% | Target >95% | PASS/FAIL |
+| L1 test suite pass rate | x% | Project target / deterministic regressions | PASS/FAIL |
 | L2 behavior probe success rate | x/6 probes | Target 6/6 | PASS/FAIL |
 | L3 stress probe triggered issues | x probes | Target 0 | List triggered items |
 | First token latency P50 | xms | Target <2000ms | PASS/FAIL |
@@ -423,7 +498,7 @@ P3 = Impact L (tech debt, schedule when possible)
 | Token usage per call | x tokens | Baseline record | - |
 | Estimated cost/per call | ¥x | Budget tier | - |
 | Memory growth (after 20 turns) | +x MB | Target <50MB | PASS/WARN |
-| Tool call success rate | x% | Target >90% | PASS/FAIL |
+| Tool call success rate | x% | Product target by tool/risk class | PASS/FAIL |
 
 ### L3 Stress Probe Details (Triggered Issue List)
 | Probe | Input Summary | Expected | Actual | Triggered Issue |
@@ -447,8 +522,9 @@ P3 = Impact L (tech debt, schedule when possible)
 | D6 Harness | x/3 | ... |
 | D7 Multi-Agent | x/3 | ... |
 | D8 Ship | x/3 | ... |
-| D9 Benchmark | x/3 | ... |
-| **Total** | **x/27** | |
+| D9 Production | x/3 or N/A | ... |
+| D10 Benchmark | x/3 | ... |
+| **Overall** | **x/100 across applicable dimensions** | Include N/A reasons |
 
 ## Prioritized Fix List
 
@@ -484,7 +560,8 @@ D5 Security issues   → /agentforge-security
 D6 Harness    → /agentforge-harness
 D7 Multi-Agent   → /agentforge-multiagent
 D8 Ship issues   → /agentforge-ship
-D9 Benchmark   → /agentforge-benchmark
+D9 Production   → /agentforge-production
+D10 Benchmark   → /agentforge-benchmark
 ```
 
 After fixes complete, rerun corresponding dimension checklist to verify score improvement.

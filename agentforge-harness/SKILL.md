@@ -11,8 +11,8 @@ triggers:
   - agent failure
   - hashimoto loop
 metadata:
-  version: "2.2.0"
-  last_updated: "2026-05-14"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 origin: self
 authored_by: zichuan
@@ -21,7 +21,9 @@ confirmed_at: "2026-05-14"
 
 > Previous: `/agentforge-security` | Next: `/agentforge-multiagent` | Series entry: `/agentforge`
 
-# Harness Engineering
+# AgentForge Phase 6: Harness Engineering
+
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
 
 A discipline for designing constraints, tools, feedback loops, and environmental infrastructure that make AI coding agents reliable at scale. Core principle: **when an agent fails, engineer a system-level fix so the failure never recurs — don't just retry.**
 
@@ -40,7 +42,7 @@ Five fundamental constraints drive why harnesses exist:
 Two production datapoints (verified 2026-04-12) show harness work outperforming model work:
 
 - **LangChain on Terminal Bench 2.0** — deepagents-cli improved from **52.8 → 66.5** (+13.7 points) by **changing only the harness, not the model**, jumping from Top 30 to Top 5. Source: [LangChain blog "Improving Deep Agents with harness engineering"](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/).
-- **Vercel d0 (text-to-SQL agent)** — deleted 80% of tools (16 → 1 bash capability) + added sandbox. Result: success rate **80% → 100%**, **40% fewer tokens**, **40% fewer steps**, **3.5× faster** (274 s → 77 s). Source: [Vercel blog "We removed 80% of our agent's tools"](https://vercel.com/blog/we-removed-80-percent-of-our-agents-tools) (Dec 2025).
+- **Vercel d0 case study** — reduced 16 tools to one sandboxed Bash capability. On five representative queries, the post reports 80%→100% success, 37% fewer tokens, 42% fewer steps, and 274.8→77.4 seconds. This is useful case evidence, not a general effect estimate. Source: [Vercel blog "We removed 80% of our agent's tools"](https://vercel.com/blog/we-removed-80-percent-of-our-agents-tools) (Dec 2025).
 
 **The model is commodity; the harness is leverage.** Both cases: same model, different harness → step-change in outcome. If your agent underperforms, assume harness gap before model gap.
 
@@ -211,10 +213,10 @@ Building a product using AI agents internally — the same seven layers apply at
 
 ## Self-Evolution: The Skill Improves Itself
 
-This skill applies the Hashimoto Loop to its own content. Claude Code can modify skill files at runtime; changes take effect immediately via live change detection.
+This skill can collect evidence for later improvement. Runtime availability of changed files is host-specific, and loading this skill never authorizes it to modify itself.
 
 - **Record feedback** to `scripts/feedback.jsonl` with fields `{date, category, description, fix_applied, file_affected}`. Categories: `hooks`, `claude-md`, `context`, `architecture`, `diagnostics`, `examples`, `advanced`, `other`.
-- **Evolve** when accumulated feedback warrants: read log → identify patterns → propose changes with diff → user approval → update files → log evolution to `scripts/changelog.md`. Always get user approval before modifying skill files. Apply Bitter Lesson to the skill itself.
+- **Evolve** when accumulated feedback warrants: read log → identify repeated patterns → propose a diff → run the relevant benchmark → obtain authorization → update files → log the decision to `scripts/changelog.md`. A single anecdote is not enough to generalize a mandatory rule.
 
 ## Loop Detection Patterns
 
@@ -337,60 +339,51 @@ Hindsight runs **after** the task in a separate context — prevents the agent f
 
 The constraint harness is always needed. The learning harness is only needed when the agent will run enough tasks that accumulated trajectory data exceeds what a human can review.
 
-## Mandatory Self-Enforcement Checkpoints
+## Portable Evidence Gates
 
-> Origin: Aindex weekly retro 2026-04-21~04-27 — 57/88 user messages flagged 4 categories of agent violations (16 unverified fixes, 26 hardcoded business enums, 5 off-topic answers, 9 shallow root-cause). User's strong-frustration baseline broken 2026-04-21. Memory-only rules had been in place 4 months without behavioral shift → soft rules confirmed insufficient. The four CHECKPOINT below are the agent-side soft layer paired with hook-layer hard enforcement (verification-summary-guard, config-drift-guard) per dual-layer C plan (approved 2026-05-14).
+Apply gates that match the claim and the host's authorization. Do not require a particular tool, network access, private repository, marker string, language, or hook implementation.
 
-### CHECKPOINT 1 — Before claiming a fix
-All of (a)+(b)+(c) required:
-- (a) A Bash tool call has occurred in the current transcript window
-- (b) Its `stdout` contains at least one literal marker: `PASS` / `FAIL` / `test passed` / `test failed` / `✓` / `✗` / `tests passed` / `ok N`
-- (c) ≥2 lines of that stdout are quoted in the response's verification block
+### Gate 1 — Before claiming a fix
 
-Until all three are satisfied, the phrases `已修复` / `修好了` / `搞定了` / `fix done` / `修复完成` are prohibited. Hook `verification-summary-guard.sh` enforces (a)+(b) mechanically as of 2026-05-14.
+- Identify the behavior that was changed and the most relevant available verification.
+- Run that verification when authorized and feasible; report the command/check and outcome accurately.
+- If verification could not run, say so and narrow the claim to “implemented” or “proposed,” not “verified fixed.”
 
-### CHECKPOINT 2 — Before stating a root cause
-Evidence trio (a)+(b)+(c), all three required:
-- (a) Read of target project config (`.config/`, `config.toml`, `.env`, `pyproject.toml`, `Cargo.toml`)
-- (b) WebSearch on the exact error string / symptom signature
-- (c) Grep of reference codebase (`~/.openclaw/借鉴/openhands/`, `openclaw/`, or comparable prior art) — at least one citation in `path/to/file:NN` form
+### Gate 2 — Before stating a root cause
 
-Without all three, conclusions must be labelled `hypothesis`, not `root cause`. Canonical rule: `feedback_search_strategy.md:70-83`. This checkpoint is its enforcement view (no dedicated hook yet — soft layer only).
+- Cite direct evidence connecting the mechanism to the symptom: trace, state transition, failing test, configuration, or minimal reproduction.
+- Search the web only when current external documentation is needed and network use is authorized.
+- Without causal evidence, label the conclusion a hypothesis and state what would confirm or falsify it.
 
-### CHECKPOINT 3 — Before claiming "hardcoding cleaned"
-Grep each touched file for CJK-rich list constants (`≥5` strings containing 汉字) — paste the grep command and its empty-result confirmation. The hook `config-drift-guard.sh` mirrors this check on write; this checkpoint forces author-side parity so the hook never has to fire as the first detection.
+### Gate 3 — Before claiming a class of defects is removed
 
-### CHECKPOINT 4 — Before answering "what is X" / "which X" / "specifically what"
-Read or Grep the referenced source and quote actual lines. Abstract paraphrases ("there's logic that handles X") are prohibited for factual queries. Citation format: `path/to/file:NN-MM` + fenced quoted block. Source: `feedback_hybrid_execution.md` scenario 3.
+- Run a repository-appropriate search, linter, type checker, or regression test that covers the claimed class.
+- Record scope and exclusions; an empty grep result proves only that the searched pattern was absent.
 
-### Enforcement Map
+### Gate 4 — Before factual source claims
 
-| Checkpoint | Soft layer (this skill) | Hard layer (hook) |
-|---|---|---|
-| 1 — fix claim | this section | `verification-summary-guard.sh` (Stop) |
-| 2 — root cause | this section | none — soft only |
-| 3 — hardcoding cleaned | this section | `config-drift-guard.sh` (PreToolUse Write/Edit) |
-| 4 — "what / which" query | this section | none — soft only |
+- Read the relevant source or authoritative documentation and cite the evidence location.
+- Paraphrase precisely; do not imply runtime behavior from names, comments, or marketing alone.
 
-Soft-only checkpoints (2 + 4) rely on agent compliance; promote to hook layer if weekly retro detects sustained violations.
+Host hooks may enforce some gates, but hook names and implementation are project-local configuration rather than universal AgentForge requirements.
 
 ## Anti-Patterns to Avoid
 
 - **The encyclopedia CLAUDE.md** — A 500-line instruction manual dilutes everything. OpenAI learned: "When everything is 'important,' nothing is."
 - **Role-based sub-agents** — "Frontend engineer" / "backend engineer" sub-agents don't work. Use sub-agents for context isolation, not role specialization.
-- **Tool maximalism** — More tools = worse results. Vercel removed 80% of their tools and improved. If a CLI tool exists in training data, prefer it over an MCP server.
+- **Tool maximalism** — overlapping tools can hurt routing. Benchmark a simpler interface; prefer a CLI only when its permissions, output bounds, errors, and observability meet the task.
 - **Prompt-only fixes** — If you're fixing the same problem by re-explaining in the prompt, you need a mechanical fix (hook, linter, structural test), not more words.
 - **Speculative rules** — Never add rules for problems that haven't happened. Each rule should trace to a real failure.
 - **Fighting the Bitter Lesson** — If every model upgrade makes your harness more complex, redesign. Good harnesses get simpler over time.
 - **Secondhand research as firsthand evidence** — When the main agent uses subagents (Explore, general-purpose) for research, the subagent's summary is secondhand. Treating it as "already scanned" leads to: (a) skipping firsthand reads of critical code, (b) compounding subagent hallucinations, (c) confident-sounding conclusions with no traceable citations. Rule: any borrowing/migration judgment MUST cite file path + line number + direct quote. Agent-transcribed summaries are insufficient. If the decision cost is high, do the read yourself. Applies recursively — if you're about to recommend a pattern from a file, verify the file still says what you remember.
 
-## Current State (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
-1. **Harness-as-Leverage validated by data** — LangChain on Terminal Bench 2.0 improved from 52.8% to 66.5% via harness change alone. Anthropic internal benchmarks: good CLAUDE.md improves complex task success rate by 20–40%.
+1. **Harness changes can move benchmark results materially** — LangChain reported 52.8%→66.5% on Terminal Bench 2.0 while holding the model constant. The effect is harness- and benchmark-specific; measure it on your workload.
 2. **Improving model capabilities compress harness complexity** — Opus/Sonnet-class models naturally follow many coding conventions that previously required explicit rules. Bitter Lesson effect accelerating: a project needing 200 lines of CLAUDE.md in 2025 now achieves the same results with 80 lines.
 3. **Hook ecosystem standardizing** — Claude Code's hooks API (PreToolUse / PostToolUse / Stop) is a de facto standard; Codex / OpenCode and other competitors adopting compatible lifecycles.
 4. **Multi-Agent harness is the new frontier** — Single-agent methodology is mature, but multi-agent patterns (worktree isolation, sub-agent instruction passing, cross-agent state sync) are still evolving.
-5. **Progress files shifting from Markdown to JSON** — Anthropic evidence shows agents have 60% lower accidental overwrite rate on structured JSON vs Markdown. Structured format becoming best practice.
+5. **Progress-file format is a consumer decision** — structured JSON supports validation and atomic fields; Markdown supports human review. Choose from observed failure modes and test concurrent/partial writes instead of assuming a universal overwrite-rate advantage.
 
 ## Known Pitfalls
 

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "series_version": "3.0.0",
+  "last_updated": "2026-08-08",
+  "entrypoint": "agentforge",
+  "phases": [
+    {"id": 0, "name": "Requirements Definition", "skill": "agentforge-spec", "previous": null, "next": "agentforge-architecture"},
+    {"id": 1, "name": "Architecture Selection", "skill": "agentforge-architecture", "previous": "agentforge-spec", "next": "agentforge-tools"},
+    {"id": 2, "name": "Tool System", "skill": "agentforge-tools", "previous": "agentforge-architecture", "next": "agentforge-context"},
+    {"id": 3, "name": "Context Engineering", "skill": "agentforge-context", "previous": "agentforge-tools", "next": "agentforge-memory"},
+    {"id": 4, "name": "Memory System", "skill": "agentforge-memory", "previous": "agentforge-context", "next": "agentforge-security"},
+    {"id": 5, "name": "Security and Sandbox", "skill": "agentforge-security", "previous": "agentforge-memory", "next": "agentforge-harness"},
+    {"id": 6, "name": "Harness Engineering", "skill": "agentforge-harness", "previous": "agentforge-security", "next": "agentforge-multiagent"},
+    {"id": 7, "name": "Multi-Agent Coordination", "skill": "agentforge-multiagent", "previous": "agentforge-harness", "next": "agentforge-ship"},
+    {"id": 8, "name": "Packaging and Release", "skill": "agentforge-ship", "previous": "agentforge-multiagent", "next": "agentforge-production"},
+    {"id": 9, "name": "Production Runtime", "skill": "agentforge-production", "previous": "agentforge-ship", "next": "agentforge-autoplan"},
+    {"id": 10, "name": "Full-Process Orchestration", "skill": "agentforge-autoplan", "previous": "agentforge-production", "next": "agentforge-evolution"},
+    {"id": 11, "name": "Controlled Evolution", "skill": "agentforge-evolution", "previous": "agentforge-autoplan", "next": "agentforge-benchmark"},
+    {"id": 12, "name": "Testing, Acceptance and Benchmarking", "skill": "agentforge-benchmark", "previous": "agentforge-evolution", "next": null}
+  ],
+  "cross_cutting": [
+    {"name": "Diagnosis and Optimization", "skill": "agentforge-diagnose"}
+  ]
+}

@@ -10,12 +10,14 @@ triggers:
   - self-evolving
   - self-improvement agent
 metadata:
-  version: "1.1.0"
-  last_updated: "2026-04-12"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 ---
 
 # AgentForge Phase 11: Agent Self-Evolution Design
+
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
 
 > Previous: `/agentforge-autoplan` (Phase 10) | Next: `/agentforge-benchmark` (Phase 12) | Series entry: `/agentforge`
 > Deep Zig implementation: `/selfevolving-agent-architecture`
@@ -38,7 +40,7 @@ Self-evolution is a **cross-cutting concern**: affects Phase 0 (declaring level)
 - **L1 — Monitoring Layer**: observe own behavior, record metrics, manual analysis. Output: diagnosis report, anomaly alerts.
 - **L2 — Reactive Layer**: detects known problem → executes predefined fix path. Output: automatic retry, degradation, restart.
 - **L3a — Suggestion Layer**: generates improvement plan → human approval → executes. Output: PR / diff / proposal.
-- **L3b — Autonomous Layer**: passes safety check → automatically applies changes → verifies. Output: automatic merge / deploy (with constraints).
+- **L3b — Controlled Automatic Experiment**: an authorized controller applies a narrowly allowlisted candidate in isolation, verifies it, and either promotes through a separate approval policy or discards it. Loading this skill never authorizes modification, merge, or deployment.
 
 **Level selection principles**:
 - L0–L1: starting point for all agents; no special design needed.
@@ -48,15 +50,15 @@ Self-evolution is a **cross-cutting concern**: affects Phase 0 (declaring level)
 
 ## Academic & Engineering Principles
 
-- **DGM (Darwin Gödel Machine)** — agent uses formal proofs to verify "the proposed modification will improve performance" before applying it. Passed the proof = safe to change itself. **Mapping to LLM Agent**: LLM doesn't do formal proofs, but can use test suites instead — passes the suite = safe. Test suite is the practical approximation.
+- **DGM (Darwin Gödel Machine)** — the published system proposes code modifications and empirically evaluates them on coding benchmarks, retaining improvements under its experimental procedure. It does not prove each improvement formally. **Mapping**: treat every candidate as an experiment requiring held-out evaluation, regression checks, and rollback; passing a test suite is evidence, not proof of safety or general improvement.
 - **Voyager (Minecraft Agent)** — don't directly modify agent code; build a reusable Skill library. Each execution, agent abstracts successful behavior sequences into new Skills stored in library; next time encountering similar tasks, reuse directly. **Mapping**: Skill accumulation in Memory = Voyager's Skill library.
 - **DSPy (Automatic Prompt Optimization)** — treat Prompt as a learnable parameter, automatically optimize Prompt to maximize task metrics (rather than manual writing). **Mapping**: system prompts shouldn't be hand-written and locked; they should be optimizable variables. L3b path: auto-experiment with different prompt variants, keep the ones that work better.
 - **Letta (MemGPT)** — agent can actively read/write its own Memory (not just passively accumulate). CRUD own core memories, enabling self-updates. **Mapping**: memory as an editable asset — the lightest self-evolution implementation.
-- **MemU (Pipeline Versioning)** — each Pipeline change produces a version (revision); versions compared by metrics; can rollback to the previous better version. **Mapping**: self-evolution requires versioning. Each modification = one revision; compare metrics = KEEP/DISCARD; fail = git reset to previous tag.
+- **MemU (Pipeline Versioning)** — each pipeline change produces a revision that can be compared and rolled back. **Mapping**: create an isolated candidate revision, compare it with the baseline, and promote or discard it through the host's authorized versioning workflow. Do not use destructive Git commands as an implicit rollback mechanism.
 
 ## Architectural Pattern: Self-Evolution Diagnosis Loop
 
-All L2–L3b implementations share this basic loop: **Monitor system metrics → trigger diagnosis (scheduled or threshold) → run diagnostic tool suite → classify results (True Finding / False Positive) → generate fix candidate plans → safety check (tests + blast radius) → (L3b) auto-apply OR (L3a) proposal to human for review → verify fix effect → record to Evolution Log → update circuit breaker state.**
+The common loop is: **monitor → trigger diagnosis → collect evidence → generate a candidate → check authorization and blast radius → evaluate in isolation → promote or discard through policy → record the decision**. L2 uses predefined recovery; L3a proposes changes for human approval; L3b may automate an isolated experiment only within prior explicit authority.
 
 ## Safety Boundary Design (L3b Must Implement)
 
@@ -115,36 +117,35 @@ Audit trail + debug foundation for self-evolution. JSONL, one entry per run. Fie
 | **7 Multi-Agent** | — | — | — | Platform needs invariant rules to guard behavior bottom line |
 | **8 Ship** | — | — | — | Auto PR + version number management |
 
-## Production Trajectory Infrastructure (Hermes Pattern)
+## Trajectory and Candidate-Improvement Pattern
 
-> Academic analogies (DGM/Voyager/DSPy) now implemented in production. Hermes (NousResearch, 40K+ stars) is the reference implementation.
+> The reviewed local Hermes source contains trajectory and prompt-building components, but that does not make Hermes a reference implementation for every DGM, Voyager, or DSPy concept. Verify the exact installed revision before naming an API or claiming production maturity.
 
 ### Trajectory Collection Architecture
 
-**ShareGPT format + outcome split** is the minimal viable trajectory infrastructure. `save_trajectory(trajectory, model, completed)` appends to `trajectory_samples.jsonl` (positive examples, task completed) or `failed_trajectories.jsonl` (negative examples, task failed). Both files directly compatible with Axolotl / TRL / Unsloth fine-tuning pipelines. **Split from day one** — retrofitting the split after thousands of mixed trajectories is costly.
+An outcome-aware trajectory store records task, observable inputs/actions/tool results, completion status, evaluator version, and evidence. The local Hermes revision should be inspected before relying on a particular function signature or filename.
 
-- `trajectory_samples.jsonl` → positive examples → supervised fine-tuning.
-- `failed_trajectories.jsonl` → negative examples → DPO / RLHF preference training.
+- Completed trajectories may become supervised examples only after privacy, licensing, quality, duplication, and leakage review.
+- Failed trajectories are diagnostic data, not automatically DPO/RLHF data. Preference training requires explicit comparison/preference construction and validation.
+- Keep raw evidence immutable; derive training/evaluation datasets as versioned artifacts with provenance.
 
 ### Training Data Hygiene: `ephemeral_system_prompt`
 
-When running batch trajectory collection (benchmarks, bootstrapping), inject persona/environment context via an `ephemeral_system_prompt` field that is **not saved to trajectories**. Without this, batch-generation context leaks into training data and teaches the model to expect personas it won't see in production. **Rule**: only production-identical system prompts should appear in saved trajectories.
+Batch-only persona/environment context should be labeled and excluded from derived training examples unless it is part of the intended production input. Field names are implementation-specific. Preserve enough metadata to reproduce the run without silently training on evaluator scaffolding.
 
-### Reasoning Chain Normalization
+### Reasoning and Rationale Data
 
-Before saving reasoning-model trajectories, normalize reasoning tags: `<REASONING_SCRATCHPAD>…</REASONING_SCRATCHPAD>` → `<think>…</think>` (required for DeepSeek-R1 / reasoning model fine-tuning pipelines). **Guard**: never save truncated reasoning chains — if `<think>` is present but `</think>` is missing, discard.
+Do not assume hidden chain-of-thought is available, appropriate to persist, or permitted for training. Prefer observable actions, tool results, concise decision summaries, evaluator labels, and outcomes. Follow the provider's data policy and the dataset's consent/licensing constraints.
 
-### RL Training Toolset Pattern (Tinker-Atropos)
+### Training Control Boundary
 
-The agent can manage its own training runs from inside the agent loop via tools: `rl_list_environments`, `rl_select_environment`, `rl_get_current_config`, `rl_edit_config`, `rl_start_training`, `rl_check_status`, `rl_stop_training`, `rl_get_results`, `rl_list_runs`, `rl_test_inference`. Enables the full closed loop: collect trajectories → analyze failures → start training run → check status → get results → test inference → deploy if improved.
-
-**When to implement**: L3b agents only. Requires training infrastructure already in place. The toolset is worthless without the backend.
+This audit did not verify the previously cited `tools/rl_training_tool.py` or its claimed RL tool API in the local Hermes source, so those interfaces are removed. If training control is added, keep it outside the task Agent's ordinary permissions: authorized operators or a dedicated control plane start/stop runs, enforce budgets, version configs/data, and require held-out evaluation before promotion.
 
 ### Automated Prompt Optimization (Behavioral Benchmark Pattern)
 
 Rather than hand-tuning per-model behavioral guidance, generate it from behavioral benchmarks. Process: (1) run behavioral benchmark suite against model family; (2) identify systematic failure modes (e.g. "GPT tends to describe actions instead of taking them"); (3) generate corrective instructions targeting each failure mode; (4) benchmark again to verify correction; (5) commit generated constants (e.g. `OPENAI_MODEL_EXECUTION_GUIDANCE`, `GOOGLE_MODEL_OPERATIONAL_GUIDANCE`) to source with verification date.
 
-This is DSPy's "prompt as learnable parameter" in production — the constants are code artifacts produced by an optimization process, not human intuition.
+This applies the general idea of optimizing prompts against a metric. It is not proof of a DSPy implementation or production effectiveness; retain the experiment configuration and held-out result.
 
 ### Hindsight Pattern (Retrospective Analysis)
 
@@ -157,18 +158,18 @@ Hindsight analyzes: "What decision pattern led to success?"
     ↓
 Extracts: reusable procedure, edge case handling, error recovery steps
     ↓
-Creates or patches skill via skill_manage()
+Produces a proposed procedure or patch artifact
     ↓
 Benchmark validates skill improves future performance
     ↓
-Skill committed to skills library
+Authorized owner accepts or rejects the candidate
 ```
 
-The loop is: **experience → analysis → skill crystallization → faster future execution.** Without Hindsight, successful trajectories accumulate but don't compound. With it, every success raises the baseline.
+The loop is: **experience → analysis → candidate → evaluation → authorized decision**. A candidate raises the baseline only if held-out evaluation and regression checks support it.
 
 ### Automated Hashimoto Loop (L3b Target)
 
-The manual Hashimoto Loop (Phase 6) has a fully automated variant: agent attempts task → trajectory saved (`completed=False` if failed) → Hindsight diagnoses "what capability/constraint was missing?" → `skill_manage()` patches relevant skill (auto-apply with security scan) → benchmark verifies recurrence prevented → repeat. Closes the loop without human involvement. **Prerequisites**: trajectory infrastructure, skills security scan, behavioral benchmark. Build in this order — don't attempt automated Hashimoto without all three.
+A controlled variant can automate candidate generation and isolated evaluation, but promotion remains governed by the authorization and risk policy: run task → preserve trajectory → diagnose evidence → generate candidate → security/static checks → held-out benchmark → human or explicitly authorized promotion controller decides. Never infer permission to patch skills, merge, or deploy from this phase.
 
 ## Known Limitations (Uncrossable Boundaries)
 
@@ -222,11 +223,11 @@ Delayed-feedback scenarios almost always overlap with HIGH consequence severity 
 Adaline tracked Anthropic API usage between **October 2025 and January 2026** and documented measurable autonomy drift — agents running longer and with less human oversight, **not because developers consciously raised the autonomy slider, but because the system drifted there on its own**:
 
 - 99.9th-percentile session length grew from **10 minutes → 40 minutes** (4× in 3 months).
-- Human interventions dropped from **5.4 → 3.3 per session** (−39%).
+- A cited operational case reported fewer human interventions over its observation period; preserve the dated source and cohort before using any exact effect size.
 
 This is exactly the failure mode the Delayed-Feedback Safety Pattern is designed to catch: even without any explicit "evolution" step, the **system state** evolves beyond the original design envelope. The observation-window requirement, attribution gate, and human-escalation threshold exist to make such drift **observable and reversible** before it compounds.
 
-**Actionable rule**: track session length p99.9 and intervention rate as **first-class self-evolution metrics**. If either moves > 50% without an intentional rollout, treat it as an unplanned evolution event and trigger the attribution gate — even if the agent's apparent quality metric looks fine.
+**Actionable rule**: track high-percentile session length and intervention rate as first-class drift metrics. Alert on a predeclared change threshold derived from the baseline distribution and risk budget, even if the headline quality metric improves.
 
 ## Minimal Runnable Self-Evolution Implementation
 
@@ -239,55 +240,31 @@ Minimum L1 → L2 implementation suitable for PoC — `MinimalSelfEvolution(conf
 
 This is intentionally 60 lines of code — it demonstrates the pattern without requiring LLM integration, and can be extended progressively toward L3a/L3b.
 
-## Current Status (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
-1. **L1–L2 have production-validated cases** — Multiple self-evolving Platform systems have completed 10+ diagnosis cycles in production; true positive rate ~60–65%; limited automatic merge implemented. L1/L2 maturity is sufficient for production Harness design.
+1. **L1–L2 are the practical starting point** — monitoring and predefined recovery can be production-safe when their triggers, ownership, and rollback are tested. This skill has no representative dataset supporting a universal true-positive rate or cycle count.
 2. **L3b still in research/experimental stage** — Fully autonomous code generation + automatic merge has very few real-world cases, mainly because LLM code-generation reliability cannot yet support zero supervision.
 3. **DSPy automatic prompt optimization moving toward production** — "Prompt as a learnable parameter" has multiple open-source implementations; good entry point for L3a self-evolution via prompt optimization.
 4. **Self-evolution safety framework gradually standardizing** — Circuit Breaker + Blast Radius + test gate combination has been independently discovered by multiple teams as the minimum safety set; trending toward standard pattern.
 
-## Runtime Self-Evolution: Tool/Scaffold Hot-Swap Pattern [SWE]
+## Runtime Tool Adaptation: Experimental Pattern
 
-A distinct variant — the agent modifies its **own tool interface or scaffold within a single session**, then continues using the updated interface. Unlike L3b (cross-session skill modification), this operates within the execution boundary of one task.
+Some frameworks load tool descriptions from configuration and could, in principle, reload them during a session. The reviewed SWE-agent source supports configuration-driven tool bundles, but this audit did not verify a `DynamicToolSet` or `hot_swap_tool` API. Do not cite such an interface as implemented behavior.
 
-### How It Works (SWE-agent source pattern)
+If runtime adaptation is intentionally implemented, treat it as a controlled experiment:
 
-SWE-agent's tool system is loaded at session start from YAML config, then compiled into tool schemas. **Key insight**: tools are data, not code — the agent can generate a new tool definition, write it to a temp file, and reload it mid-session without restarting.
+1. Keep the immutable base toolset and candidate definition separately.
+2. Validate schema, authorization metadata, and executable behavior in isolation.
+3. Record the candidate, reason, scope, and evaluation result.
+4. Apply only to the authorized session or experiment cohort.
+5. Restore the immutable base definition on failure; session restart alone is not a sufficient rollback design.
 
-`DynamicToolSet.hot_swap_tool(tool_name, new_definition)`: (1) validate new definition (schema check only — no execution test); (2) replace the in-memory tool; (3) recompile schemas (injected into next LLM turn's system prompt); (4) append to session evolution log (not persisted across sessions). Each hot-swap carries a mandatory `evolution_reason` field.
-
-### Key Design Constraints
-
-| Constraint | Reason |
-|-----------|--------|
-| **In-session scope only** | Hot-swapped tools don't persist; each session starts from base scaffold |
-| **Schema validation required** | Malformed tool definitions cause silent failures in next LLM turn |
-| **`evolution_reason` field mandatory** | Auditability: why did the agent modify the tool? |
-| **No execution test** | Unlike L3b, no test gate — agent assumes its own judgment is valid for the current task |
-| **Rollback = session restart** | If hot-swap makes things worse, rollback requires aborting the session |
-
-### When This Pattern Is Appropriate
-
-Agent encounters tool-interface friction mid-task (output format doesn't match downstream, missing parameter needed for this task, tool description misleads LLM about capabilities):
-- **Task well-scoped (single session, clear success criteria)?** → runtime tool hot-swap is appropriate.
-- **Improvement general (will help all future sessions)?** → use L3b (Hermes) instead — trajectory → skill patch → benchmark → deploy. Runtime hot-swap wastes the learning; it only benefits the current session.
-
-### Critical Difference from L3b (Hermes)
-
-| Dimension | Runtime Hot-Swap [SWE] | L3b Automated Hashimoto [HR] |
-|-----------|----------------------|------------------------------|
-| Scope | Current session only | Persists across sessions |
-| Validation gate | None (agent self-judgment) | Behavioral benchmark required |
-| Tool modification | In-memory schema only | Writes to skill files on disk |
-| Safety | Low risk (session-scoped) | High risk (circuit breaker mandatory) |
-| Use case | Task-specific adaptation | Systematic capability improvement |
-
-**Anti-pattern**: using runtime hot-swap to avoid building proper L3b infrastructure — the improvements are lost every session. If the agent hot-swaps the same tool 3+ times across different sessions, that tool needs a permanent fix via L2/L3b.
+Prefer a proposal or pull request for improvements intended to persist across sessions. Runtime adaptation must not become a way to bypass review, testing, or the host's mutation authorization.
 
 ## Known Pitfalls
 
 1. **L3b without Circuit Breaker** — Self-evolving agent enters a fix-failure loop; consecutive wrong modifications destroy the system. Circuit Breaker is the minimum requirement for L3b — without it, do not go live.
-2. **Enabling self-evolution with low test coverage** — Test gate has no value: modifications in areas not covered by tests cannot be verified. Prerequisite: core-path test coverage > 80%.
+2. **Enabling controlled evolution with weak behavioral coverage** — a test gate cannot validate untested effects. Prerequisite: critical paths, historical failures, permissions, and rollback behavior have explicit tests; line coverage alone is insufficient.
 3. **Evolution Log not designed** — When self-evolution-related bugs appear, you can't trace "which automatic modification introduced the problem." Establish Evolution Log starting from L2.
 4. **Ignoring Goodhart's Law** — Directly optimizing `error_rate` causes the agent to delete logs, lower thresholds, and other avoidance behaviors. Multi-dimensional metrics + human review is the only defense.
 5. **Self-evolution scope not bounded** — L3b without Blast Radius may modify authentication / security core code — once wrong, losses are huge. Start with `config/` and `memory/`; manually set core code as forbidden zones.
@@ -303,7 +280,7 @@ Agent encounters tool-interface friction mid-task (output format doesn't match d
 | Self-evolution Platform architecture | `/agentforge-multiagent` (Platform mode) |
 | Evolution alignment & safety (game theory) | `/evolution-alignment` |
 | Computational resource economics | `/computational-resource-economics` |
-| Production trajectory infrastructure + RL toolset (Hermes source) | `借鉴/hermes-agent/agent/trajectory.py`, `tools/rl_training_tool.py` |
+| Production trajectory infrastructure (Hermes source) | `借鉴/hermes-agent/agent/trajectory.py` |
 | Behavioral benchmark → auto-generated guidance | `借鉴/hermes-agent/agent/prompt_builder.py` |
 
 ## Self-Evolution Checklist

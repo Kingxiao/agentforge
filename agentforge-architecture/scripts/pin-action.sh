@@ -35,8 +35,7 @@ pin_action() {
 
     echo "Pinning $action_ref"
     local hash
-    hash=$(gh api "repos/${repo}/git/refs/tags/${tag}" --jq '.object.sha' 2>/dev/null || \
-           gh api "repos/${repo}/commits/${tag}" --jq '.sha' 2>/dev/null || \
+    hash=$(gh api "repos/${repo}/commits/${tag}" --jq '.sha' 2>/dev/null || \
            echo "")
 
     if [[ -z "$hash" ]]; then
@@ -44,12 +43,16 @@ pin_action() {
         return
     fi
 
-    SHORT_HASH="${hash:0:7}"
     echo "  → ${hash}"
 
     # 替换文件中所有出现的该 action 引用
     if [[ -f "$CURRENT_FILE" ]]; then
-        sed -i "s|uses: ${action_ref}|uses: ${repo}@${hash}  # ${tag}|g" "$CURRENT_FILE"
+        local tmp_file line
+        tmp_file=$(mktemp "${CURRENT_FILE}.tmp.XXXXXX")
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            printf '%s\n' "${line/"uses: ${action_ref}"/"uses: ${repo}@${hash}  # ${tag}"}"
+        done < "$CURRENT_FILE" > "$tmp_file"
+        mv "$tmp_file" "$CURRENT_FILE"
         echo "  Updated in $CURRENT_FILE"
     fi
 }
@@ -60,7 +63,7 @@ process_file() {
     echo "Processing: $file"
 
     # 提取所有 uses: owner/repo@ref 引用
-    grep -oP '(?<=uses: )[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+@[a-zA-Z0-9_./.-]+' "$file" | sort -u | while read -r action_ref; do
+    sed -nE 's/^[[:space:]]*-[[:space:]]*uses:[[:space:]]*([^[:space:]#]+).*/\1/p' "$file" | sort -u | while read -r action_ref; do
         pin_action "$action_ref"
     done
 }
@@ -71,7 +74,7 @@ export -f process_file
 if [[ -f "$TARGET" ]]; then
     process_file "$TARGET"
 elif [[ -d "$TARGET" ]]; then
-    find "$TARGET" -name "*.yml" -o -name "*.yaml" | while read -r f; do
+    find "$TARGET" \( -name "*.yml" -o -name "*.yaml" \) -type f | while read -r f; do
         process_file "$f"
     done
 else

@@ -1,7 +1,7 @@
 ---
 name: agentforge-multiagent
 disable-model-invocation: true
-description: Internal AgentForge Phase 7 coordination guide. Load only when explicitly named or selected by the agentforge router; it never authorizes spawning sub-agents and must yield to host delegation policy.
+description: Internal AgentForge Phase 7 coordination guide. Load only when explicitly named or selected by the agentforge router. Do not load for concurrent tool calls or file-operation scheduling; those belong to agentforge-tools. It never authorizes spawning sub-agents and must yield to host delegation policy.
 triggers:
   - multi-agent
   - sub-agent
@@ -9,12 +9,14 @@ triggers:
   - subagent spawn
   - agent orchestration
 metadata:
-  version: "2.1.0"
-  last_updated: "2026-04-12"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 ---
 
 # AgentForge Phase 7: Multi-Agent Coordination
+
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
 
 > Previous: `/agentforge-harness` | Next: `/agentforge-ship` | Series entry: `/agentforge`
 > Orchestrating existing agents: use the host's native sub-agent and worktree controls.
@@ -35,11 +37,11 @@ metadata:
 | Metric | Value | Implication |
 |---|---|---|
 | **Single agent token cost** | "agents typically use about **4× more tokens** than chat interactions" | Even a plain agent is 4× a single chat call |
-| **Multi-agent token cost** | "multi-agent systems use about **15× more tokens** as chats" | ~4× above single agent; plan budget accordingly |
+| **Multi-agent token cost in Anthropic's research system** | Reported about **15× the tokens of chat interactions** in that workload | Use as a warning, not a universal multiplier; measure your own task distribution |
 | **Performance uplift** | "Claude Opus 4 lead + Sonnet 4 subagents outperformed single-agent Claude Opus 4 by **90.2%** on internal research eval" | Multi-agent is not a tax — it's a capability unlock for heavy parallelization |
 | **Variance decomposition** | On BrowseComp: "**token usage alone explains 80% of variance**"; token usage + tool calls + model choice explain **95%** of variance | Context engineering > model choice as the lever |
 
-**Cost/benefit rule**: "Multi-agent systems require tasks where the value of the task is high enough to pay for the increased performance." In plain words — **if you can't justify 15× token spend for substantial quality gain, don't go multi-agent**.
+**Cost/benefit rule**: multi-agent execution must beat a single-agent baseline enough to justify its measured extra tokens, latency, coordination failures, and review cost. Do not assume the research system's 15× ratio applies to another domain.
 
 **Best-fit domains (verbatim)**: "tasks that involve heavy parallelization, information that exceeds single context windows, and interfacing with numerous complex tools." Three clear "yes" signals. Missing all three → single agent is almost always the right answer.
 
@@ -65,19 +67,19 @@ Does your scenario need multi-agent?
 
 > Source: Adaline Labs, 2026-04-11 (https://labs.adaline.ai/p/multi-agent-systems-product-control-plane)
 
-**Anthropic's own research system** was documented to have "**spawned 50 subagents for simple queries**" and at times "scouring the web endlessly" without a delegation governance layer. This is the canonical failure mode: without explicit permission/handoff/visibility/recovery rules, a Lead agent will over-delegate and burn token budget in a runaway fan-out. **Treat 50-subagent episodes as a paging-severity incident**, not an amusing anecdote — at 15× token ratio, one such episode can exceed a month's budget for a single task.
+Runaway fan-out is a credible operational failure mode even when an anecdotal count cannot be independently generalized. Enforce explicit max depth, fan-out, total budget, and stop conditions; alert when the configured envelope is exceeded.
 
-## 4 Sub-Agent Modes [CC] — 3-Tier Isolation System
+## 5 Coordination Modes and 3 Deployment/Isolation Profiles
 
-Claude Code has the most refined multi-agent isolation architecture in production, with three progressive tiers:
+These profiles are alternatives, not a universal maturity ranking:
 
 | Tier | Isolation Method | Mechanism | Applicable Scenario |
 |------|-----------------|-----------|-------------------|
 | L1 | Worktree isolation | `git worktree` creates independent working tree, file-level isolation | Sub-tasks modify files, need conflict avoidance |
 | L2 | CCR / Remote isolation | Cloud compute environment, full sandbox (isolated filesystem + network) | Large-scale parallelization, untrusted code execution |
-| L3 | Background async | Same workspace, async notification mechanism | Independent read-only tasks, don't block main flow |
+| L3 | Background async | Same workspace, async notification mechanism; scheduling mode rather than isolation | Independent low-conflict tasks that need not block the main flow |
 
-This is currently the most mature isolation tiering in production-grade agent systems — most competitors only have "same-process" or "container" two modes, lacking an intermediate state.
+Select from task effects, conflict risk, trust boundary, cost, and host capabilities. A background task in the same workspace is not more isolated than a worktree or container.
 
 ### Mode 1: Synchronous Blocking
 
@@ -165,8 +167,8 @@ Recent empirical research has identified serious failure modes in multi-agent de
 | Failure mode | Description | Mitigation |
 |--------------|-------------|------------|
 | **Homogeneous bias amplification** | When advocate and challenger share the same base model, they share the same training biases. Debate amplifies rather than corrects these biases — the agents agree on wrong answers with higher confidence | Force heterogeneity: use different model providers or at least different model families for advocate vs challenger. A Claude-vs-Claude debate is weaker than Claude-vs-GPT debate |
-| **Persuasion > accuracy** | A single eloquent but incorrect agent can lower system accuracy by 10-40% (Nature Sci Rep 2026). Agents often fail to revise their stance when confronted with correct counter-evidence, swayed instead by confident delivery | Add a "change condition" to round 2 prompt: "What specific evidence, not rhetoric, would change your position?" Reject positions that claim no evidence could change them |
-| **Voting ≈ Debate** | ICLR 2025 research shows majority voting accounts for most performance gains attributed to Multi-Agent Debate. Simple N-way parallel sampling + vote may be cheaper and equally effective | Benchmark Mode 5 against simpler "N independent samples + majority vote" before committing. If voting performs within 5% of debate at 1/3 the cost, use voting |
+| **Persuasion can beat evidence** | Debate can entrench a confident error rather than correct it | Require explicit evidence, change conditions, and an evaluator that is not rewarded for rhetorical agreement |
+| **Voting may match debate** | Some tasks gain mainly from independent sampling rather than interaction | Benchmark debate against independent samples plus an appropriate aggregator; select from measured quality, diversity, cost, and latency |
 | **Error entrenchment over rounds** | Additional debate rounds don't always improve outcomes — they can cement initial errors through repetition. More rounds ≠ better decisions | Cap at 2 rounds maximum. Extended rounds risk groupthink around incorrect consensus |
 
 **Revised decision flow**:
@@ -175,7 +177,7 @@ Recent empirical research has identified serious failure modes in multi-agent de
 Considering Mode 5 (Adversarial Debate)?
     │
     ├─ Do you have the budget for N-way parallel sampling + majority voting?
-    │  Yes → Benchmark voting FIRST. It's often 80% as good at 33% the cost
+    │  Yes → Benchmark independent sampling + aggregation first; it is simpler and may be cheaper
     │
     ├─ If voting is insufficient, can you use heterogeneous models?
     │  No (only one provider available) → Mode 5 risks bias amplification — reconsider
@@ -372,7 +374,7 @@ Adaline tracked Anthropic API usage from **October 2025 → January 2026**:
 
 - **Linux Foundation A2A Protocol** — crossed "150 supporting organizations in its first year" — inter-agent governance is being standardized at the ecosystem level, not just per-product.
 - **Amazon finding** — "Quality issues in production often surface in ways that traditional monitoring misses" — you can't just bolt on APM; need agent-specific observability.
-- **Gartner prediction** — "40% of enterprise applications will include task-specific agents by year's end, up from less than 5% in 2025" — demand is real, but the production bar is rising fast.
+- **Forecasts are not requirements** — adoption predictions change quickly and do not justify multi-agent architecture. Use the task's measured parallelism and value instead.
 
 ## CI as Universal Verifier
 
@@ -399,7 +401,7 @@ Four patterns below don't fit the standard decision flow and only apply when you
 
 If none of these match your system, the four spawn modes + Control Plane 4 primitives above cover your case.
 
-## Current State (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
 1. **Worktree Isolation Becomes Mainstream** — Claude Code's git worktree mode is validated as the optimal solution for multi-agent file conflicts; Codex CLI and OpenCode have both implemented similar mechanisms; "multi-agent in same workspace" pattern is being phased out
 2. **Agent-to-Agent Protocol Converging** — Google A2A protocol and Anthropic's Agent SDK drive standardization of inter-agent communication, but Git commit as shared state remains the most reliable cross-agent communication in production

@@ -9,21 +9,23 @@ triggers:
   - should I use an Agent
   - agent spec
 metadata:
-  version: "2.1.0"
-  last_updated: "2026-04-12"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 ---
 
 # AgentForge Phase 0: Requirements Definition
+
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
 
 > Series entry: `/agentforge` | Next: `/agentforge-architecture`
 > Broader AI product judgment: `/ai-product-manager`
 
 ## 5 Questions the User Must Answer (Technical Selection Agent Auto-Decides)
 
-> **The user only needs to answer these 5 questions.** All technical details (language, framework, model, architecture paradigm, memory system, security level, etc.) are automatically inferred by the Agent — no need to understand them.
+> Start from these five product questions, but do not hide technical choices that materially change cost, data handling, vendor commitment, deployment ownership, permissions, or user-visible behavior. Propose those choices with evidence and confirm them at the appropriate impact gate.
 >
-> Exception: If you are in mainland China, or require only domestically accessible models, please note this when answering Question 4. The Agent will switch technical selections accordingly.
+> If regional access or data residency matters, record it as a constraint and verify current compatible providers before proposing a selection.
 
 ### Q1: What will your Agent do? (Creative vision / core functionality, 1-3 sentences)
 
@@ -54,11 +56,11 @@ Pick the closest to your expectation:
 
 | Tier | Reference Amount | User Experience |
 |------|----------------|-----------------|
-| **Exploration** | ¥50-200/month | Use cheap models (Gemini 3 Flash / Claude Haiku 4.5), core functionality works, occasional quality gaps on complex tasks |
-| **Practical** | ¥200-1000/month | Use mainstream models (Claude Sonnet 4.6 / GPT-5.4 mini), stable quality, suitable for dozens of daily uses |
-| **Production** | ¥1000+/month | Use flagship models (Claude Opus 4.6 / GPT-5.4), best quality for high-frequency or complex tasks |
+| **Exploration** | ¥50-200/month | Optimize for learning and a narrow task set; evaluate a current low-cost model against the acceptance cases |
+| **Practical** | ¥200-1000/month | Balance measured quality, latency, and cost for expected task volume |
+| **Production** | ¥1000+/month | Budget for evaluation, observability, recovery, and review as well as model inference |
 
-> If in mainland China or requiring domestically accessible models, please specify. Selection switches to: DeepSeek / Alibaba Qwen / Baidu Qianfan, etc.
+> These are conversation bands, not price guarantees. Calculate the actual plan from current primary pricing, task volume, retries, tools, hosting, and review cost.
 
 ### Q5: What standard will you use to accept this Agent? (Final acceptance)
 
@@ -73,17 +75,9 @@ Pick the closest to your expectation:
 
 ## Production Reality Check (Before Any Technical Discussion)
 
-> Added 2026-04-12. Source: Adaline Labs "Multi-Agent Systems Need a Product Control Plane" (2026-04-11, https://labs.adaline.ai/p/multi-agent-systems-product-control-plane) + Gartner 2027 forecast + METR research.
+Agent projects often fail from unclear value, weak acceptance criteria, excessive autonomy, missing operational ownership, or costs that were measured per call rather than per completed task. Industry anecdotes and forecasts are useful warnings but do not establish a 90% prior for an individual project.
 
-Before any technical decision, face three empirical numbers from 2025–2026 production data:
-
-| Reality | Number | Source |
-|---|---|---|
-| **Production arrival rate** | "Only 1 in 10 agentic AI use cases reached production in the past year" | Adaline Labs, 2026-04 |
-| **Projected cancellation rate** | "40% of agentic AI projects will be canceled by 2027" — escalating costs + unclear ROI | Gartner via Adaline Labs |
-| **Capability growth rate** | "AI task duration doubling every seven months" | METR research, 2025-2026 |
-
-**Implication for Phase 0**: the default probability you're about to build an Agent that never sees production is **~90%**. The goal of this Phase is not "design a better agent" — it is to **put your project on the 10% side** by answering the gates below honestly. If any gate below fails, stop and choose a simpler architecture. Delivery of a workflow that ships beats an agent that doesn't.
+**Implication for Phase 0**: require a measurable user outcome, a simpler baseline, an explicit failure budget, per-task cost, and an owner for operation and review. If a fixed workflow meets the criteria, ship that workflow instead of introducing an Agent loop.
 
 ## Gate 0: Workflow or Agent?
 
@@ -155,7 +149,7 @@ What does your scenario need?
 
 ### Existing Solution Scan (Before Building)
 
-> Added 2026-04-11. Audit finding: users who pass the suitability check above jump straight into architecture design, missing off-the-shelf solutions that solve 80%+ of their use case with zero code.
+> Users who pass the suitability check may still jump into custom architecture before evaluating existing products, APIs, or deterministic automation. Compare those options against the same acceptance criteria; do not assume a universal coverage percentage.
 
 Before designing a custom Agent, search for existing solutions:
 
@@ -174,7 +168,7 @@ Does an off-the-shelf product/action already do this?
    3. Check if your target platform (GitHub/Slack/Notion) has an official AI integration
 ```
 
-**Decision**: If an existing solution covers ≥ 80% of your needs, **use it first**. Build custom only when the remaining 20% is critical to your use case. The cheapest, most reliable Agent is the one you don't build.
+**Decision**: score existing solutions against weighted acceptance criteria and test the highest-coverage option first. Build custom only when an unmet requirement is material enough to justify ownership cost; do not use a universal coverage cutoff.
 
 ### Five-Layer Feasibility Check
 
@@ -206,13 +200,13 @@ This is not a domain-specific check — it's a **universal consequence assessmen
 | Type | Core Capability | Representatives | Key Challenges |
 |------|----------------|-----------------|----------------|
 | **Coding Agent** | Read/write code + execute commands + test verification | Claude Code, Codex, Cursor, Aider, OpenCode | Edit precision, security isolation |
-| **Research Agent** | Search + read + cross-validate + synthesize | Perplexity, AutoResearch | Hallucination control (citation fabrication > 30% in chatbot contexts, 58-88% in legal domains — 2025-2026 benchmarks), source tracing, external validation hooks |
+| **Research Agent** | Search + read + cross-validate + synthesize | Perplexity, AutoResearch | Citation entailment, source tracing, freshness, disagreement handling, and domain-specific verification |
 | **Data Agent** | Query + analyze + visualize + report | Various BI Agents | Data security, SQL injection |
 | **Workflow Agent** | Orchestrate multi-step business processes | n8n AI, Zapier AI | Error recovery, idempotency |
 | **Personal Agent** | Long-term memory + personalization + proactive triggers | Letta, MemU | Memory management, privacy |
 | **Agent OS / Platform** | Multi-channel gateway + plugin system + Skill orchestration | OpenClaw, Goose | Multi-channel adaptation, plugin isolation |
-| **GUI Agent** | DOM/AX tree serialization + action execution + event-driven observation loop | browser-use (web-native, no screenshots), Claude Computer Use (screenshots), UI-TARS | **Web-native path (browser-use)**: no screenshot tokens — uses CDP AX tree instead; key challenges: DOM serialization fidelity, action parameter isolation (special params never in LLM schema), watchdog pattern for reliable event detection. **Screenshot path (Computer Use)**: ~1,600 tokens/image (verified: `width×height/750`, Anthropic docs 2026-04-11), $4.80 per 1,000 screenshots with Sonnet. Monthly cost at 50 tasks/day × 10 screenshots/task = **$72/month** (Practical budget). Web-native path: $0 image tokens |
-| **Voice / Realtime Agent** | Real-time audio stream + <500ms response + bidirectional WebSocket | OpenAI Realtime API (gpt-realtime), Gemini Live | WebSocket long connection management, interruption handling, concurrent conversation isolation. **Cost**: audio input $0.06/min + output $0.24/min (verified 2026-04-11); Path A (ASR+text) is ~12x cheaper |
+| **GUI Agent** | DOM/AX tree or screenshot observation + action execution + event-driven verification | browser-use, computer-use APIs, UI-TARS | DOM/AX paths reduce image usage but may miss visual state; screenshot paths add vision cost and coordinate uncertainty. Measure task-level reliability and verify the current provider's image accounting before budgeting. |
+| **Voice / Realtime Agent** | Real-time audio stream + low-latency response + bidirectional WebSocket | Current realtime-capable providers | Long-connection management, interruption handling, concurrent isolation, latency budget, and current provider pricing; verify before selection |
 | **Learning Agent** | Trajectory capture + skill synthesis + self-benchmark + closed learning loop | Hermes (NousResearch) | Validation gate design (no gate = error amplification), ephemeral context hygiene in training data, RL infrastructure coupling |
 
 ### Research Agent Search Strategy Design Points
@@ -322,13 +316,13 @@ After completing the 5 required questions, output the following document. **[Use
 2. ___
 
 ---
-## ▌Technical Inference (Agent Auto-Fills, User Does Not Need to Decide)
+## ▌Technical Proposal (Agent Drafts, Impact Gates Still Apply)
 
-> The following is automatically inferred by the Agent based on the user's 5 answers. If special constraints exist, note them in "User Information".
+> Draft the following from known requirements. Confirm choices that materially affect cost, data handling, deployment ownership, vendor commitment, permissions, or user-visible behavior.
 
 - **Agent Type**: [Agent auto-identifies: Coding / Research / Data / Workflow / Personal / GUI / Voice]
 - **Interaction Pattern**: [Agent auto-selects: CLI / Web / API / Daemon / IDE Plugin / Realtime]
-- **Architecture Paradigm**: [Agent auto-selects: First to Seventh Paradigm, with rationale]
+- **Architecture Paradigm**: [fixed workflow/no Agent loop, or one of Paradigms 1–8, with rationale]
 - **Implementation Language**: [Agent auto-selects, with rationale]
 - **LLM Model**: [Agent matches by budget tier, with estimated monthly cost]
 - **Memory System**: [Agent auto-selects: file memory / chunk memory / semantic memory, with rationale]
@@ -348,22 +342,19 @@ Where:
   per_call_token_cost = (input_tokens × input_price + output_tokens × output_price) / 1M
   avg_loop_iterations = 5-15 for typical Agent tasks (NOT 1)
   cache_miss_rate = 0.1-0.4 depending on prompt stability
-  cache_penalty_multiplier = 9 (cache miss costs 10x vs hit; 90% savings lost)
+  cache_penalty_multiplier = current_uncached_rate / current_cached_rate - 1
 ```
 
-**Example**: PR Review Agent with Claude Sonnet 4.6 ($3/$15 per MTok)
-- Per-call: ~2K input + 1K output = $0.021
-- Per-task (1 iteration, Webhook): $0.021 × 1 = $0.02
-- Monthly (5 PRs/day): $0.02 × 5 × 30 = **$3/month** ← fits Exploration budget
-- Monthly with cache misses (40%): $3 × 1.36 = **$4.08/month**
+**Worked calculation template**:
 
-**Example**: Coding Agent with Claude Sonnet 4.6
-- Per-call: ~8K input + 4K output = $0.084
-- Per-task (avg 8 iterations): $0.084 × 8 = $0.67
-- Monthly (10 tasks/day): $0.67 × 10 × 30 = **$201/month** ← barely fits Practical budget
-- Monthly with cache misses (20%): $201 × 1.18 = **$237/month**
+- Per-call model cost = `input units × current input rate + output units × current output rate + cache/media charges`.
+- Per-attempt cost = model calls + paid tools + compute/runtime.
+- Per-accepted-task cost = `(all attempt costs + human review cost) / accepted tasks`.
+- Monthly cost = per-accepted-task cost × expected accepted-task volume + fixed infrastructure and observability.
 
-**Warning thresholds**: If estimated monthly cost exceeds 80% of budget tier ceiling, flag to user with specific cost drivers
+Use measured iteration and retry distributions. Without current pricing or network authorization, leave rates as variables and label the estimate provisional rather than naming a current model.
+
+**Warning threshold**: reserve an explicit uncertainty/headroom margin for retries, traffic variance, cache misses, paid tools, and review. Set the margin from risk and observed variance rather than a fixed percentage.
 
 **Non-LLM cost check** (mandatory): LLM tokens are often the minority of total Agent operating cost. After computing the LLM cost above, ask:
 - Does this Agent consume paid external data APIs? (market data, geospatial, medical databases, legal corpora) → Add their monthly cost
@@ -382,20 +373,20 @@ Where:
 - Mandatory language/tech stack constraints: ___ (Example: company standard is Go, cannot use Python)
 ```
 
-## Current State (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
 1. **Agent type boundaries are blurring** — Integration of Coding Agent and Research Agent capabilities is accelerating. Claude Code/Codex already have both code generation and deep research capabilities. Pure-type thinking is failing. Requirements should start from "capability combinations" rather than "type labels."
 2. **MCP protocol becoming de facto standard** — Anthropic's Model Context Protocol adopted by OpenAI, Google, major IDEs. Tool feasibility assessment shifted from "does the API exist" to "does the MCP server exist," dramatically reducing tool-layer technical risk.
-3. **Agent cost structure changing dramatically** — Mainstream model inference costs dropped 5-10x over the past 12 months (Gemini 3 Flash, Claude Haiku 4.5, etc.). High-frequency Agent scenarios previously infeasible due to cost (continuous code review, real-time data monitoring) are re-entering the feasible zone.
+3. **Agent economics change quickly** — model, cache, tool, and hosted-runtime prices evolve independently. Recalculate per-completed-task cost from current primary pricing when cost affects feasibility.
 4. **"Agent vs Workflow" judgment remains the first question** — Anthropic's official documentation clearly distinguishes Agentic System = Agent + Workflow. Most scenarios are more reliable and cheaper with deterministic Workflow than autonomous Agent. Over-agentification is the most common requirements definition error.
 
 ## Known Pitfalls
 
 1. **Over-agentification** — Packaging scenarios solvable via Function Calling pipeline as Agents, introducing unnecessary loop complexity and uncertainty. Solution: Strictly use the suitability decision tree. Only adopt Agent mode when "multi-step reasoning + mid-course decisions" conditions are met.
 2. **Ignoring user error tolerance expectations** — Developers default to assuming users can tolerate Agent trial-and-error behavior, but enterprise users have far lower tolerance for "Agent mistakes" than expected. Solution: Explicitly label error tolerance tier in Spec stage. Move approval flow requirements forward to the requirements definition stage.
-3. **Customer service / Q&A Agent acceptance expectations too high** — "AI can resolve 60-80% of tickets" is the best-case outcome for top performers, not an industry baseline. Actual data (2026): **mixed business scenarios average 35-50%**. Only high-quality knowledge base + structured questions reach 65-79%. Deflection rate is a function of "knowledge base quality," not model capability. Solution: Use specific scenarios in Q5 acceptance criteria (e.g., "correctly answers 90% of single-hop questions in product documentation") rather than percentages like "resolve 70% of tickets" that are easily misinterpreted.
-3. **Cost estimation looks only at tokens, not loop** — Per-call token cost may be acceptable, but Agent loop averages 5-15 iterations — actual cost is 5-15x single-call cost. Solution: Cost estimates must use "per-task completion cost" not "per-API-call cost."
-4. **Security requirements added later** — Security level not defined in Spec stage. Only discovered in Phase 5 that OS-level sandbox is needed, causing architecture refactoring. Solution: Force-fill sandbox requirements field in Agent Spec document. Lock security baseline in Phase 0.
+3. **Using industry deflection percentages as acceptance criteria** — averages do not represent a specific knowledge base or ticket mix. Solution: define a representative scenario set, escalation behavior, false-answer cost, and measured target for that set.
+4. **Cost estimation looks only at tokens, not loop** — per-call cost hides retries, tool calls, failed runs, and review. Solution: estimate and measure cost per accepted task.
+5. **Security requirements added later** — permissions, data sensitivity, and approval points discovered after architecture selection cause rework. Solution: declare the initial risk boundary in Phase 0 and refine it in Phase 5.
 
 ## Further Reading
 
@@ -403,7 +394,7 @@ Where:
 |-------|----------|
 | Phase 1: Architecture Pattern Selection | `/agentforge-architecture` |
 | Phase 5: Security Baseline & Sandbox Selection | `/agentforge-security` |
-| Phase 9: Orchestrator & Task Planning | `/agentforge-autoplan` |
+| Phase 10: Full-Process Orchestration | `/agentforge-autoplan` |
 | AI Product Feasibility & PRD Output | `/ai-product-manager` |
 | Agent Observability & Metrics Design | `/agent-observability` |
 | Agent Tool System Design | `/agentforge-tools` |
@@ -411,7 +402,7 @@ Where:
 ## Spec Checklist
 
 - [ ] Passed suitability decision tree (confirmed Agent needed vs. ChatBot/pipeline)
-- [ ] Existing solution scan completed (confirmed no off-the-shelf product covers ≥80% of use case)
+- [ ] Existing-solution scan completed against weighted acceptance criteria; material unmet requirements documented
 - [ ] Passed five-layer feasibility check
 - [ ] Agent type determined (including GUI / Voice judgment)
 - [ ] **Voice / Realtime Agent**: Confirmed "degraded path" (ASR→text→Async Generator Loop) vs "true realtime path" (WebSocket + Realtime API) — these are architecturally incompatible, Phase 1 re-selection cost is high

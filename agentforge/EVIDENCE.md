@@ -3,6 +3,7 @@
 > Single source of truth for every external claim cited by the `agentforge-*` skills.
 > Any statistic, benchmark, or specific quote in any skill file must trace back to an entry here.
 > Purpose: prevent cross-session hallucination of "verified" numbers. If it's not here, it's not verified.
+> Audit status (2026-08-08): every entry whose `Verified` date is more than 90 days old is stale under this file's own policy. Stale entries may support historical context, but not current pricing, product availability, legal conclusions, or benchmark generalization until re-verified.
 
 ## How This File Works
 
@@ -188,19 +189,16 @@
 
 ## Not Yet Verified (Claims Flagged for Future Re-check)
 
-These appear in agentforge skill files but have NOT been independently WebFetched to their primary source. Re-verify before relying on them:
-
-- **"5 malicious documents can manipulate output 90% of the time"** — agentforge-security RAG section. Not found in the public OWASP LLM01:2025 page content. May be from a separate research paper incorrectly attributed to OWASP. **Action**: locate primary source or demote claim to "illustrative example only."
-- **"Four-layer combined defense: 73.2% → 8.7% attack success, 94.3% benign task perf"** — agentforge-security. Searched 2026-04-12; the closest match is a four-layer governance framework (Perception / Decision / Memory / Execution) in a Clausius Press paper, but it does not supply those exact percentages. **Action**: demote to "architectural pattern, stats unverified" or replace with P2SQL defense numbers (which are primary-sourced).
+- No numeric claim may remain in a skill merely because it appears in this section. Move it into a source entry after primary-source verification, or remove/demote it in the skill.
 
 ## Applied Corrections (2026-04-12, commit e38fc1a + follow-up)
 
 All four corrections from the prior round have been backfilled into the skill source files:
 
 1. ✅ **agentforge-architecture** (`SKILL.md:287-296`) — rewrote gpt-realtime pricing to per-million-token canonical form; version bumped 2.0.0 → 2.1.0. **Additional fix this round**: also discovered the `$0.06/$0.24 per minute` rule-of-thumb was stale — those values are for the deprecated **gpt-4o-realtime-preview** ($100/$200 per 1M tokens), not current gpt-realtime ($32/$64 per 1M). Recomputed correct per-minute values: **$0.019/min input + $0.077/min output** (derived from OpenAI's published 10 tok/sec user + 20 tok/sec assistant rates). Monthly example math also corrected (original had an internal inconsistency between "100 calls/day" and the claimed `$180/month` result; true answer at 10 calls/day × 2 min × 30 days × new pricing ≈ $58/month).
-2. ✅ **agentforge-security** Layer 6 (`SKILL.md:173`, `zh/SKILL.md:380`) — updated to "4 first-party backends (docker/local/remote/kubernetes) in main codebase; third-party runtimes moved out-of-tree mid-2025"; version 2.0.0 → 2.1.0.
-3. ✅ **agentforge-security** RAG section (`SKILL.md:198`, `zh/SKILL.md:417`, `references/rag-prompt-injection.md:3`) — removed unverified "5 docs / 90%" claim; replaced with OWASP's verbatim direct/indirect definitions and OWASP's honest "no fool-proof prevention" limit.
-4. ✅ **agentforge-security** 4-layer defense stats — removed unverified "73.2% → 8.7% / 94.3%" numbers from the same section; reframed the four layers as defense-in-depth pattern (structural content preserved, unsourced stats demoted).
+2. ✅ **agentforge-security** Layer 6 — corrected first-party versus third-party runtime wording and requires installed-version verification.
+3. ✅ **agentforge-security** RAG section — removed unverified "5 docs / 90%" and "73.2% → 8.7% / 94.3%" claims; retained the four layers only as an unquantified defense-in-depth pattern.
+4. ✅ **agentforge-security** compliance section — replaced blanket recording and data-localization conclusions with jurisdiction-specific review gates and conservative product defaults.
 
 **Lesson**: Rule-of-thumb numbers often fossilize past model-generation prices. When bumping a model reference, always recompute derived figures from first principles (tokens/sec × price/token), don't blindly copy the old `$/min` value.
 
@@ -212,4 +210,4 @@ All four corrections from the prior round have been backfilled into the skill so
 4. In the skill file itself, cite as: `Source: <description> — <url> (verified YYYY-MM-DD)`.
 5. When a source is older than 90 days **and** you're editing the skill that cites it, re-fetch the URL and either update the `verified` date (if content still matches) or correct the skill (if content has changed).
 
-**Iron rule**: No claim in `agentforge-*` skill files without a corresponding row here. If you find one, it's an audit debt — add it to "Not Yet Verified" above and schedule a fetch.
+**Release gate**: no material current claim may drive a recommendation without a corresponding primary-source row and valid verification date. Historical or unverified claims may remain only when explicitly labeled non-normative; otherwise remove them or add them to audit debt. The static validator catches selected known failures but does not prove complete evidence coverage, so release review still requires a claim audit.

@@ -7,14 +7,16 @@ triggers:
   - run the complete AgentForge pipeline
   - one-shot AgentForge pipeline
 metadata:
-  version: "2.1.0"
-  last_updated: "2026-04-08"
+  version: "3.0.0"
+  last_updated: "2026-08-08"
   category: "agent-engineering"
 ---
 
 # AgentForge Phase 10: Full-Pipeline Orchestration
 
-> Series entry: `/agentforge` | Covers Phase 0→8 in full
+> **Phase isolation:** This file is self-contained for its decision. References to other `/agentforge-*` skills are navigation only; do not load another phase in the same response unless the user explicitly requests a multi-phase comparison.
+
+> Previous: `/agentforge-production` (Phase 9) | Series entry: `/agentforge` | Orchestrates Phase 0→9
 > This pipeline is opt-in; ordinary Agent work should not enter it automatically.
 
 ## Explicit mode selection (orchestrator entry point)
@@ -34,9 +36,9 @@ requests.
 
 ## Core Understanding
 
-Building an Agent is a 9-phase pipeline. Each phase has clear inputs and outputs. The orchestrator's job: **automatically handle mechanical decisions, only escalate genuinely judgment-heavy calls to humans.**
+The build path has ten decision phases (0→9), followed by optional controlled evolution (11) and benchmarking (12). Phase 10 orchestrates the build path; it does not replace the phase owners. The orchestrator handles reversible mechanical choices and escalates decisions that change product scope, risk, cost, data handling, or external effects.
 
-Not every Agent needs to run all 9 phases. The orchestrator automatically skips inapplicable phases based on the scenario.
+Not every system needs every phase. Record each phase as `completed`, `light`, or `not_applicable`, with a reason. A skipped phase is not silently assumed complete.
 
 ## Orchestration Pipeline
 
@@ -44,7 +46,7 @@ Not every Agent needs to run all 9 phases. The orchestrator automatically skips 
 Phase 0 (spec)        → Agent positioning and feasibility
     ↓ Output: Agent Spec document
 Phase 1 (architecture) → Architecture selection
-    ↓ Output: Loop paradigm choice (5 options) + Language + Provider plan
+    ↓ Output: Workflow/loop choice (8 documented paradigms or no Agent loop) + language/provider constraints
 Phase 2 (tools)        → Tool system design
     ↓ Output: Tool interface + Concurrency strategy + MCP integration plan
 Phase 3 (context)      → Context engineering
@@ -59,6 +61,8 @@ Phase 7 (multiagent)   → Multi-Agent coordination (optional)
     ↓ Output: Spawn mode + Communication protocol
 Phase 8 (ship)         → Packaging and release
     ↓ Output: Packaging config + CI/CD + Version management
+Phase 9 (production)   → Production runtime (only for managed/persistent services)
+    ↓ Output: Runtime ownership + isolation + recovery + observability plan
 ```
 
 ## Decision Division of Labor
@@ -75,14 +79,14 @@ When the orchestrator starts, extract these 5 items from whatever information th
 | 4 | **Budget tier** | "What's your acceptable monthly API cost range (see tier table below)? Do you need China-accessible models only?" |
 | 5 | **Acceptance criteria** | "What would make you say this Agent is done? Describe it naturally." |
 
-### All Technical Choices Are Automated
+### Technical Choices Are Proposed, Then Gated by Impact
 
-The following are **decided autonomously by the orchestrator, never asked of the user**:
+The orchestrator may propose defaults for the following. It must ask when the choice changes user-visible behavior, material cost, data residency, vendor commitment, destructive capability, deployment ownership, or an explicit user constraint:
 
 | Technical Decision | Auto-Decision Basis |
 |-------------------|---------------------|
 | Programming language | Auto-selected by deployment scenario, performance needs, delivery speed |
-| Architecture paradigm (7 Loop types) | Auto-selected by interaction pattern and trigger method |
+| Architecture paradigm (8 documented types, or no Agent loop) | Proposed from interaction pattern and trigger method |
 | LLM model | Auto-matched by budget tier + China constraint |
 | Framework/library selection | Auto-selected by language + scenario, simplest first |
 | Memory system | Auto-selected by user count and memory importance |
@@ -92,7 +96,7 @@ The following are **decided autonomously by the orchestrator, never asked of the
 | Multi-Agent | Auto-determined by task parallelizability |
 | Packaging approach | Auto-selected by distribution target |
 
-**China constraint exception**: When user mentions "China", "Mainland China", "can't use OpenAI/Claude", automatically switch to China-accessible solutions (DeepSeek / Alibaba Qwen / Baidu Qianfan) — no need to ask for specific model names.
+**Regional-access constraint**: Treat geography, data residency, and provider availability as explicit constraints. Offer currently verified compatible options; do not infer that mentioning a country authorizes a provider switch or establishes a legal conclusion.
 
 ### When You Must Ask the User: Present Experience, Not Technical Specs
 
@@ -104,17 +108,19 @@ When a technical choice genuinely needs user input (rare cases), **don't present
 
 ✅ Right:
 "This task has two directions with noticeably different outcomes — your call:
-  Direction A (~$10/month): Handles 85% of tasks, occasional errors on complex cases, needs occasional oversight
-  Direction B (~$40/month): Handles complex tasks reliably, almost no need to monitor
+  Direction A: lower expected cost and latency; fails the documented complex-case subset more often in the current evaluation
+  Direction B: higher expected cost; meets the complex-case target in the current evaluation
   Which do you prefer?"
 ```
 
+Use measured values from the project's benchmark when available. Do not invent price or quality percentages to make an option feel concrete.
+
 ### 6 Automated Decision Principles
 
-### 1. Completeness First
-Cover all edge cases — no "we'll add it later" gaps.
+### 1. Risk-Weighted Completeness
+Cover safety-critical and acceptance-critical paths first. Defer speculative edge cases explicitly instead of expanding the design without evidence.
 
-**Application**: When designing tool interfaces, prefer to over-define `isReadOnly()`, `isExpensive()` and other methods rather than "implement simply first."
+**Application**: Define only the tool metadata needed for authorization, scheduling, observability, and tested recovery. Add fields when a concrete consumer exists.
 
 ### 2. Pragmatic Choices
 When options are equivalent, pick the simpler one. Technically achievable ≠ should do it.
@@ -129,7 +135,7 @@ Each piece of information lives in exactly one place. Applies to config, constan
 ### 4. Explicit Over Implicit
 Every decision has a traceable rationale. "Default" is not a reason.
 
-**Application**: When selecting Async Generator paradigm (from 7 options), record "because streaming output + TypeScript ecosystem needed."
+**Application**: When selecting Async Generator from the eight documented paradigms, record "because streaming output + TypeScript ecosystem needed."
 
 ### 5. Bias for Action
 Default to forward motion, not waiting. When information is insufficient: state judgment → propose plan → flag uncertainties.
@@ -137,7 +143,7 @@ Default to forward motion, not waiting. When information is insufficient: state 
 **Application**: Don't block the entire Phase 1 because "Provider plan isn't settled yet" — use the most likely option and continue.
 
 ### 6. Conservative on Security
-When in doubt on permissions/sandboxing, pick the stricter option. Can always loosen later; security vulnerabilities are hard to recall.
+Choose the least privilege that still permits the accepted task. When evidence is missing, propose a narrower permission set and identify the capability it may block; do not silently change the product behavior.
 
 **Application**: Unsure if sub-Agent needs file write permissions → default to deny.
 
@@ -147,13 +153,13 @@ Boundary case principle: When technical feasibility is disputed, Agent completes
 
 | Type | Definition | How It's Handled | Example |
 |------|-----------|-----------------|---------|
-| **Mechanical** | Has clear optimal solution | Auto-handle | File format, import style, concurrency strategy |
+| **Mechanical** | Reversible and constrained by repository conventions | Auto-handle within authorization | File format, import style |
 | **Taste** | Multiple equivalent options | Auto-handle + record rationale | Naming style, directory structure, framework choice |
-| **Technical Selection** | Language/model/architecture decisions | **Auto-handle** (see technical selection table) | Language: Python/Go, model matched to budget |
+| **Technical Selection** | Language/model/architecture decisions | Propose with rationale; confirm when impact gate applies | Language, provider, managed runtime |
 | **User Challenge** | Affects product direction — the 5 user questions | Must be human-decided | Idea, positioning, effect expectation, budget, acceptance |
 | **Premise Assumption** | Assumption may be wrong | Must be human-confirmed | "Assuming target users are developers" |
 
-**Iron rule**: Orchestrator only asks user about "User Challenge" and "Premise Assumption" — never blocks on technical selections.
+**Rule**: do not ask about low-impact reversible choices already determined by context. Do ask about technical selections that cross the impact gates above.
 
 ## Phase Skip Logic
 
@@ -175,9 +181,13 @@ Is your Agent user-facing?
 Does your Agent need to be distributed to others?
 ├─ No (self-use only) → Skip Phase 8 (ship)
 └─ Yes → Execute Phase 8
+
+Is it operated as a persistent or managed service?
+├─ No (CLI, local cron, platform-managed scheduled job) → Mark Phase 9 light or not applicable
+└─ Yes → Execute Phase 9
 ```
 
-**Non-skippable phases**: Phase 0 (spec), Phase 1 (architecture), Phase 2 (tools), Phase 6 (harness). These 4 are minimum requirements for any Agent.
+**Minimum decisions**: Phase 0 and Phase 1. Phase 2 is required only when tools exist; Phase 6 is proportional to observed risks and acceptance needs. Fixed workflows must not be inflated into autonomous Agents merely to satisfy the phase list.
 
 ## Orchestration Execution Protocol
 
@@ -249,13 +259,15 @@ Determine starting Phase:
 | Phase | Required Key Outputs | Next Phase Consumer |
 |-------|---------------------|-----------------|
 | 0 Spec | Agent type, deployment form, target users, processing plane, key constraints, SLA requirements | Phase 1 (architecture basis) |
-| 1 Architecture | Loop paradigm (5-of-5), language, Provider, multi-channel flag | Phase 2/3/5/6 (all depend on it) |
+| 1 Architecture | Workflow/loop choice (one of 8, or no Agent loop), language, Provider, multi-channel flag | Phase 2/3/5/6 (all depend on it) |
 | 2 Tools | Tool list (incl. external API call list), concurrency strategy, MCP tools | Phase 3 (context budget), Phase 5 (security audit scope) |
 | 3 Context | Context window size, Prompt Cache boundary, compaction strategy | Phase 4 (memory vs. compaction boundary) |
 | 4 Memory | Memory paradigm, persistence solution, multi-tenancy flag | Phase 5 (RLS requirements), Phase 7 (shared memory design) |
 | 5 Security | Sandbox tier, approval workflow requirements, per-tool permission list | Phase 6 (harness hook config), Phase 8 (CI/CD gate) |
 | 6 Harness | CLAUDE.md rules summary, hook config, verification commands | Phase 8 (CI integration) |
 | 7 MultiAgent | Spawn mode, communication protocol, Agent count | Phase 8 (single-process vs. multi-process packaging) |
+| 8 Ship | Artifact, release target, rollback and ownership | Phase 9 (runtime deployment shape) |
+| 9 Production | Runtime ownership, isolation, recovery, observability | Phase 10 retrospective and Phase 12 acceptance |
 
 **Handoff summary format** (written to progress file `handoff_summary` field at Phase completion):
 
@@ -334,11 +346,11 @@ When all Phases are complete, output the final report:
 
 `agentforge-autoplan` focuses on the **agent construction process**, not deployment/operations (use `/cloud-deployment`) or generic business-process orchestration.
 
-## Current State (April 2026)
+## Historical Snapshot (April 2026; re-verify before use)
 
-1. **Agent build tooling is highly fragmented** — No unified standard from Spec to release; teams switch repeatedly between LangGraph/CrewAI/Autogen/Vercel AI SDK, each switch causes 30-50% architecture rework. The orchestrator's value is locking the decision chain and reducing mid-course pivots.
+1. **Agent build tooling is fragmented** — switching frameworks can create adapter and evaluation rework. The orchestrator's value is preserving explicit decisions and acceptance criteria, not locking a team into the first choice.
 2. **"One-click Agent generation" products emerging but quality is questionable** — Wordware, Dify, Coze and other no-code Agent platforms attracted many non-technical users, but generated Agents generally fall short on error recovery, security isolation, and context management. Full-pipeline orchestrator targets professional developers seeking engineering-grade solutions.
-3. **Phase skip logic increasingly important** — Practice shows 70%+ of Agent projects don't need Phase 7 (multi-Agent), 40%+ don't need Phase 8 (shipping), but almost all projects underestimate Phase 5 (security) workload. Orchestrator needs to guide security investment more proactively.
+3. **Phase skip logic is important** — many projects do not need multi-agent coordination, distribution, or a managed runtime. Applicability must come from delivery shape and risks rather than unsupported population percentages.
 4. **Progress persistence shifting from "optional" to "required"** — Agent build cycles extending from "done in a day" to "multi-day iteration"; cross-session resume capability directly determines the orchestrator's practical usability.
 
 ## Known Pitfalls
@@ -346,7 +358,7 @@ When all Phases are complete, output the final report:
 1. **Over-automating judgment calls** — Orchestrator auto-handles "premise assumption" questions that should be user decisions in pursuit of "smooth experience," causing Agent direction to drift. Fix: Strictly enforce four-type decision classification, never auto-handle "user challenge" and "premise assumption" — better to ask once more than make a directional decision for the user.
 2. **Cross-phase dependency loss** — Phase 3 (context) decisions depend on Phase 1 (architecture) output, but progress file only records final results not derivation process, causing decisions to disconnect on mid-stream resume. Fix: Progress file must record full derivation chain for each decision, including input basis and alternatives considered.
 3. **Skipping a Phase ≠ zero cost** — Marking "skipped Phase 7" and jumping to Phase 8, but Phase 8's packaging strategy actually depends on "are there sub-agents" information. Fix: Skipped Phases still need minimal declarations (e.g., "no sub-agents") for downstream Phase consumption.
-4. **Orchestrator itself becomes bottleneck** — Serial execution of 9 Phases means single-Phase blocking freezes the entire pipeline. Fix: Identify Phase pairs that can parallelize (e.g., Phase 4 memory and Phase 5 security in some scenarios), annotate parallel windows in the progress file.
+4. **Orchestrator itself becomes bottleneck** — Serial execution of ten build phases can freeze the pipeline. Parallelize only phases whose inputs are independent, and keep shared decisions in one owner; otherwise preserve serial handoffs.
 5. **Decision fatigue causes user abandonment** — When 5+ "user challenge" questions are asked in sequence, users tend to answer randomly or quit. Fix: Merge multiple related decisions into one structured question with recommended options and rationale.
 
 ## Further Reading
@@ -362,6 +374,7 @@ When all Phases are complete, output the final report:
 | Phase 6: Harness Engineering | `/agentforge-harness` |
 | Phase 7: Multi-Agent Coordination | `/agentforge-multiagent` |
 | Phase 8: Packaging & Release | `/agentforge-ship` |
+| Phase 9: Production Runtime | `/agentforge-production` |
 | Phase 11: Self-Evolution | `/agentforge-evolution` |
 | Phase 12: Testing, Acceptance & Benchmarking | `/agentforge-benchmark` |
 | Cloud Deployment & Operations | `/cloud-deployment` |
